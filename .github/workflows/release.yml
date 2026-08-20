@@ -119,3 +119,7 @@ jobs:
           tag_name: ${{ steps.version.outputs.tag }}
           files: remindiary-${{ steps.version.outputs.tag }}.apk
           generate_release_notes: true
+          # Any tag carrying a semver pre-release suffix (-beta.1, -rc.2, -alpha)
+          # is published as a pre-release. Obtainium can then be told whether to
+          # track these or wait for stable builds.
+          prerelease: ${{ contains(steps.version.outputs.tag, '-') }}
