@@ -46,6 +46,54 @@ Keep it outside the repo. Passwords are prompted for on stdin rather than passed
 variables, so they stay out of your shell history. Do not set `ABI` for a release build:
 the bundle should carry every ABI and let Play split it per device.
 
+## Installing
+
+Releases are published as signed APKs on the
+[Releases page](https://github.com/grantstephens/ReminDiary/releases). Download and
+sideload the APK directly, or point [Obtainium](https://github.com/ImranR98/Obtainium)
+at this repository and it will track and install updates automatically.
+
+## Publishing a release
+
+Tagging builds and publishes automatically — see `.github/workflows/release.yml`:
+
+```bash
+git tag v1.0.1 && git push origin v1.0.1
+```
+
+The workflow runs `make check`, builds an all-ABI APK, re-signs it with the project's
+release key and attaches it to a GitHub Release. `versionName` comes from the tag;
+`versionCode` comes from the workflow run number, so it always increases — Android
+refuses to upgrade an installed app otherwise.
+
+### One-time signing setup
+
+Android identifies an app by its signing certificate. Every release must use the *same*
+key, or existing users cannot upgrade and would have to uninstall, losing their journal.
+Generate it once, back it up, never commit it:
+
+```bash
+keytool -genkeypair -v -keystore remindiary.keystore -alias remindiary \
+        -keyalg RSA -keysize 2048 -validity 10000
+base64 -w0 remindiary.keystore    # value for ANDROID_KEYSTORE_BASE64
+```
+
+Then set four repository secrets:
+
+| Secret | Value |
+|---|---|
+| `ANDROID_KEYSTORE_BASE64` | base64 of the `.keystore` file |
+| `ANDROID_KEYSTORE_PASSWORD` | keystore password |
+| `ANDROID_KEY_ALIAS` | key alias (`remindiary` above) |
+| `ANDROID_KEY_PASSWORD` | key password |
+
+```bash
+gh secret set ANDROID_KEYSTORE_BASE64 < <(base64 -w0 remindiary.keystore)
+gh secret set ANDROID_KEYSTORE_PASSWORD
+gh secret set ANDROID_KEY_ALIAS
+gh secret set ANDROID_KEY_PASSWORD
+```
+
 The desktop build exists so iteration does not need a device. Android is the
 shipping target.
 

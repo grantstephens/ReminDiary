@@ -14,6 +14,18 @@ APK    := remindiary.apk
 MAINDIR := cmd/remindiary
 FYNE_APK := $(MAINDIR)/ReminDiary.apk
 AAB      := remindiary.aab
+TOML_BAK := .FyneApp.toml.bak
+
+# Every fyne invocation rewrites FyneApp.toml in place — it bumps Build, strips
+# the indentation and deletes the comments. Snapshot it and put it back, even
+# when the build fails. The Build number does not matter locally: CI passes an
+# explicit --app-build so the published versionCode comes from the run number.
+define with_toml_guard
+	cp FyneApp.toml $(TOML_BAK); \
+	( $(1) ); status=$$?; \
+	cp $(TOML_BAK) FyneApp.toml; rm -f $(TOML_BAK); \
+	exit $$status
+endef
 FYNE_AAB := $(MAINDIR)/ReminDiary.aab
 
 # ABI selects which architectures go into the APK. Unset builds all four, which
@@ -86,7 +98,7 @@ android-env: # Internal: the toolchain both Android targets need
 		echo 'Install the NDK and point ANDROID_NDK_HOME at it.'; exit 1; }
 
 apk: android-env ## Build an installable Android APK (RELEASE=1 ABI=arm64 for a real phone)
-	cd $(MAINDIR) && fyne package -os $(ANDROID_TARGET) -app-id $(APP_ID) $(if $(RELEASE),--release,)
+	@$(call with_toml_guard,cd $(MAINDIR) && fyne package -os $(ANDROID_TARGET) -app-id $(APP_ID) $(if $(RELEASE),--release,))
 	mv $(FYNE_APK) $(APK)
 	@echo '>> built $(APK)'
 
@@ -112,8 +124,7 @@ release: android-env ## Build a signed .aab for Play (KEYSTORE=path KEY_NAME=ali
 		exit 1; }
 	@[ -f "$(KEYSTORE)" ] || { echo 'KEYSTORE does not exist: $(KEYSTORE)'; exit 1; }
 	@[ -n "$(KEY_NAME)" ] || { echo 'KEY_NAME is unset (the key alias inside the keystore).'; exit 1; }
-	cd $(MAINDIR) && fyne release -os $(ANDROID_TARGET) -app-id $(APP_ID) \
-		--keystore $(abspath $(KEYSTORE)) --key-name $(KEY_NAME)
+	@$(call with_toml_guard,cd $(MAINDIR) && fyne release -os $(ANDROID_TARGET) -app-id $(APP_ID) --keystore $(abspath $(KEYSTORE)) --key-name $(KEY_NAME))
 	mv $(FYNE_AAB) $(AAB)
 	@echo '>> built $(AAB) — verify with: bundletool validate --bundle $(AAB)'
 
@@ -137,5 +148,5 @@ deps: ## Report which desktop build libraries are missing
 	fi
 
 clean: ## Remove build output
-	rm -f $(APK) $(AAB) $(FYNE_APK) $(FYNE_AAB) remindiary
+	rm -f $(APK) $(AAB) $(FYNE_APK) $(FYNE_AAB) $(TOML_BAK) remindiary
 	go clean -cache -testcache

@@ -13,6 +13,9 @@
 *.jks
 *.p12
 
+# fyne rewrites FyneApp.toml on every build; the Makefile snapshots it here.
+.FyneApp.toml.bak
+
 # Go
 *.test
 *.out

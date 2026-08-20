@@ -1,0 +1,121 @@
+# Builds a signed APK on tag push and attaches it to a GitHub Release, which is
+# what Obtainium (and IzzyOnDroid) watch.
+#
+# Required repository secrets:
+#   ANDROID_KEYSTORE_BASE64  - base64 of your .keystore file
+#   ANDROID_KEYSTORE_PASSWORD
+#   ANDROID_KEY_ALIAS
+#   ANDROID_KEY_PASSWORD
+#
+# See README.md "Releasing" for how to generate the keystore and set these.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to build (must already exist)'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  check:
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - run: make check
+
+  apk:
+    name: Signed APK
+    needs: check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # The runner ships an Android SDK and NDK already; fyne only needs to be
+      # told where the NDK is. Pinned to the CLI version this was tested with.
+      - name: Configure Android toolchain
+        run: |
+          echo "ANDROID_NDK_HOME=$ANDROID_NDK_LATEST_HOME" >> "$GITHUB_ENV"
+          BUILD_TOOLS=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          echo "$BUILD_TOOLS" >> "$GITHUB_PATH"
+          echo "Using NDK $ANDROID_NDK_LATEST_HOME and build-tools $BUILD_TOOLS"
+
+      - name: Install fyne CLI
+        run: go install fyne.io/tools/cmd/fyne@v1.7.2
+
+      # versionName comes from the tag; versionCode from the run number, which
+      # only ever increases. Android refuses to upgrade an installed app unless
+      # versionCode goes up, so it must not be hardcoded to FyneApp.toml's value.
+      - name: Derive version
+        id: version
+        run: |
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          echo "name=${TAG#v}" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      # All four ABIs: this build goes to strangers' phones, not just yours.
+      - name: Build APK
+        working-directory: cmd/remindiary
+        run: |
+          fyne package -os android \
+            -app-id xyz.hub13.remindiary \
+            --app-version "${{ steps.version.outputs.name }}" \
+            --app-build "${{ github.run_number }}" \
+            --release
+          mv ReminDiary.apk "$GITHUB_WORKSPACE/unsigned.apk"
+
+      # fyne signs with its own built-in debug key. Strip that and re-sign with
+      # the real one: Android identifies an app by its signing certificate, so
+      # every release must carry the same key or users cannot upgrade.
+      - name: Sign APK
+        env:
+          KS_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_PASS: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          if [ -z "$KS_B64" ]; then
+            echo "::error::ANDROID_KEYSTORE_BASE64 is not set. See README.md 'Releasing'."
+            exit 1
+          fi
+          printf '%s' "$KS_B64" | base64 -d > keystore.jks
+          zip -q -d unsigned.apk 'META-INF/*.RSA' 'META-INF/*.SF' 'META-INF/*.MF' || true
+          zipalign -p -f 4 unsigned.apk aligned.apk
+          apksigner sign \
+            --ks keystore.jks \
+            --ks-pass env:KS_PASS \
+            --ks-key-alias "$KEY_ALIAS" \
+            --key-pass env:KEY_PASS \
+            --out remindiary-${{ steps.version.outputs.tag }}.apk \
+            aligned.apk
+          rm -f keystore.jks unsigned.apk aligned.apk
+
+      - name: Verify signature
+        run: |
+          apksigner verify --print-certs "remindiary-${{ steps.version.outputs.tag }}.apk"
+          aapt dump badging "remindiary-${{ steps.version.outputs.tag }}.apk" \
+            | grep -E "^package|sdkVersion|native-code"
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          files: remindiary-${{ steps.version.outputs.tag }}.apk
+          generate_release_notes: true
