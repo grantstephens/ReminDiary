@@ -24,6 +24,28 @@ make apk RELEASE=1 ABI=arm64   # ~25MB
 Dropping the unused ABIs is what shrinks it; `--release` alone only saves about 19%. The
 build needs the `fyne` CLI plus `ANDROID_HOME` and `ANDROID_NDK_HOME`.
 
+### Releasing to Google Play
+
+`make apk` is for sideloading. It targets SDK 29, which Play rejects — and `--release`
+does not change that, because fyne gates the SDK 35 target on `fyne release` rather than
+`fyne package`. For a Play-ready signed bundle:
+
+```bash
+make release KEYSTORE=~/keys/remindiary.keystore KEY_NAME=remindiary
+```
+
+That needs [`bundletool`](https://developer.android.com/tools/bundletool) on PATH and a
+keystore you generate once and never lose — Play ties the app identity to it permanently:
+
+```bash
+keytool -genkeypair -keystore remindiary.keystore -alias remindiary \
+        -keyalg RSA -keysize 2048 -validity 10000
+```
+
+Keep it outside the repo. Passwords are prompted for on stdin rather than passed as
+variables, so they stay out of your shell history. Do not set `ABI` for a release build:
+the bundle should carry every ABI and let Play split it per device.
+
 The desktop build exists so iteration does not need a device. Android is the
 shipping target.
 

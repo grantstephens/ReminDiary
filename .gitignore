@@ -4,7 +4,14 @@
 
 # Build output
 *.apk
+*.aab
 /remindiary
+
+# Signing keys. Losing these means never being able to update the app on
+# Play again; committing them to a public repo means anyone can forge it.
+*.keystore
+*.jks
+*.p12
 
 # Go
 *.test

@@ -1,14 +1,11 @@
 Website = "https://hub13.xyz"
 
 [Details]
-  Icon = "icon.png"
-  Name = "ReminDiary"
-  ID = "xyz.hub13.remindiary"
-  Version = "1.0.0"
-  Build = 1
+Icon = "icon.png"
+Name = "ReminDiary"
+ID = "xyz.hub13.remindiary"
+Version = "1.0.0"
+Build = 2
 
-# Declares that every UI call already happens on the main goroutine, which
-# silences Fyne 2.8's startup warning and drops its off-thread auto-repair.
-# `fyne package` turns this key into the `migrated_fynedo` build tag.
 [Migrations]
-  fyneDo = true
+fyneDo = true

@@ -13,6 +13,8 @@ APK    := remindiary.apk
 # symlinked into cmd/remindiary so fyne finds the metadata it needs.
 MAINDIR := cmd/remindiary
 FYNE_APK := $(MAINDIR)/ReminDiary.apk
+AAB      := remindiary.aab
+FYNE_AAB := $(MAINDIR)/ReminDiary.aab
 
 # ABI selects which architectures go into the APK. Unset builds all four, which
 # is what you want for an emulator but quadruples the download for a phone:
@@ -35,7 +37,7 @@ GOTAGS := $(if $(TAGS),-tags $(TAGS),)
 DESKTOP_PKGS := gl x11 xcursor xrandr xinerama xi xxf86vm xkbcommon
 
 .DEFAULT_GOAL := help
-.PHONY: help run run-headless build test vet fmt check apk install deps clean
+.PHONY: help run run-headless build test vet fmt check apk release android-env install deps clean
 
 help: ## Show this help
 	@echo 'ReminDiary — targets:'
@@ -72,7 +74,7 @@ check: fmt vet test ## fmt + vet + test
 # committed asset, not a build product — icon.svg beside it is the editable
 # source. The guards exist because fyne's own failure messages do not say which
 # variable to set.
-apk: ## Build an installable Android APK (RELEASE=1 ABI=arm64 for a real phone)
+android-env: # Internal: the toolchain both Android targets need
 	@command -v fyne >/dev/null 2>&1 || { \
 		echo 'fyne CLI not found. Install it with:'; \
 		echo '    go install fyne.io/tools/cmd/fyne@latest'; \
@@ -82,9 +84,38 @@ apk: ## Build an installable Android APK (RELEASE=1 ABI=arm64 for a real phone)
 	@[ -n "$$ANDROID_NDK_HOME" ] || [ -d "$$ANDROID_HOME/ndk-bundle" ] || { \
 		echo 'ANDROID_NDK_HOME is unset and $$ANDROID_HOME/ndk-bundle does not exist.'; \
 		echo 'Install the NDK and point ANDROID_NDK_HOME at it.'; exit 1; }
+
+apk: android-env ## Build an installable Android APK (RELEASE=1 ABI=arm64 for a real phone)
 	cd $(MAINDIR) && fyne package -os $(ANDROID_TARGET) -app-id $(APP_ID) $(if $(RELEASE),--release,)
 	mv $(FYNE_APK) $(APK)
 	@echo '>> built $(APK)'
+
+# `fyne package --release` does NOT produce a Play-ready build. It only sets
+# -ldflags=-w. The targetSdkVersion=35 branch in fyne's mobile/build.go is gated
+# on `distribution`, which only `fyne release` sets — `fyne package` leaves the
+# target at 29, which Play rejects.
+#
+# Passwords are deliberately not accepted as variables: fyne prompts for them on
+# stdin, which keeps them out of your shell history and the process list.
+#
+# Do not pass ABI here. A Play bundle is meant to carry every ABI so Play can
+# split per-device; ABI=arm64 is for sideloading a single phone.
+release: android-env ## Build a signed .aab for Play (KEYSTORE=path KEY_NAME=alias)
+	@command -v bundletool >/dev/null 2>&1 || { \
+		echo 'bundletool not found — fyne release needs it to build the .aab.'; \
+		echo '    Arch: yay -S android-bundletool'; \
+		echo '    or:   https://developer.android.com/tools/bundletool'; \
+		exit 1; }
+	@[ -n "$(KEYSTORE)" ] || { \
+		echo 'KEYSTORE is unset. Point it at your signing keystore:'; \
+		echo '    make release KEYSTORE=~/keys/remindiary.keystore KEY_NAME=remindiary'; \
+		exit 1; }
+	@[ -f "$(KEYSTORE)" ] || { echo 'KEYSTORE does not exist: $(KEYSTORE)'; exit 1; }
+	@[ -n "$(KEY_NAME)" ] || { echo 'KEY_NAME is unset (the key alias inside the keystore).'; exit 1; }
+	cd $(MAINDIR) && fyne release -os $(ANDROID_TARGET) -app-id $(APP_ID) \
+		--keystore $(abspath $(KEYSTORE)) --key-name $(KEY_NAME)
+	mv $(FYNE_AAB) $(AAB)
+	@echo '>> built $(AAB) — verify with: bundletool validate --bundle $(AAB)'
 
 install: apk ## Build the APK and install it on a connected device
 	@command -v adb >/dev/null 2>&1 || { echo 'adb not found (install android-tools).'; exit 1; }
@@ -106,5 +137,5 @@ deps: ## Report which desktop build libraries are missing
 	fi
 
 clean: ## Remove build output
-	rm -f $(APK) remindiary
+	rm -f $(APK) $(AAB) $(FYNE_APK) $(FYNE_AAB) remindiary
 	go clean -cache -testcache
