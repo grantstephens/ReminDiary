@@ -1,0 +1,14 @@
+# Journal data. These are real diary entries — never commit them.
+*.csv
+*.db
+
+# Build output
+*.apk
+/remindiary
+
+# Go
+*.test
+*.out
+
+# Design docs and plans — kept locally, not published.
+docs/
