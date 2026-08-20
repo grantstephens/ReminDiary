@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"remindiary/internal/journal"
+	"github.com/grantstephens/remindiary/internal/journal"
 )
 
 // Run executes the full contract against stores produced by newStore. Each

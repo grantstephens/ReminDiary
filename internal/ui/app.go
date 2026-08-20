@@ -8,7 +8,7 @@ import (
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/theme"
 
-	"remindiary/internal/journal"
+	"github.com/grantstephens/remindiary/internal/journal"
 )
 
 // App wires the four screens into a tabbed layout and owns the cross-screen

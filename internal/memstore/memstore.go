@@ -6,7 +6,7 @@ import (
 	"sort"
 	"time"
 
-	"remindiary/internal/journal"
+	"github.com/grantstephens/remindiary/internal/journal"
 )
 
 // Store is an in-memory journal.Store. The zero value is not usable; call New.

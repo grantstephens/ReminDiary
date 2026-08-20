@@ -8,7 +8,7 @@ import (
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
 
-	"remindiary/internal/journal"
+	"github.com/grantstephens/remindiary/internal/journal"
 )
 
 // Stats is the statistics screen. Its numbers are always derived from the

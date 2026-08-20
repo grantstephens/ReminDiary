@@ -14,7 +14,7 @@ import (
 	"io"
 	"time"
 
-	"remindiary/internal/journal"
+	"github.com/grantstephens/remindiary/internal/journal"
 )
 
 // header is the exact column order written on export and required on import.

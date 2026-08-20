@@ -6,8 +6,8 @@ import (
 
 	"fyne.io/fyne/v2/test"
 
-	"remindiary/internal/journal"
-	"remindiary/internal/memstore"
+	"github.com/grantstephens/remindiary/internal/journal"
+	"github.com/grantstephens/remindiary/internal/memstore"
 )
 
 func newAppFixture(t *testing.T) (*App, journal.Store) {

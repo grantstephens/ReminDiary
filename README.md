@@ -14,6 +14,16 @@ make run     # desktop window
 make apk     # Android package
 ```
 
+`make apk` builds a debug package with all four ABIs, which is about 122MB — fine for an
+emulator, wasteful for a phone. For a real device:
+
+```bash
+make apk RELEASE=1 ABI=arm64   # ~25MB
+```
+
+Dropping the unused ABIs is what shrinks it; `--release` alone only saves about 19%. The
+build needs the `fyne` CLI plus `ANDROID_HOME` and `ANDROID_NDK_HOME`.
+
 The desktop build exists so iteration does not need a device. Android is the
 shipping target.
 

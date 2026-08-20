@@ -5,8 +5,8 @@ import (
 
 	"fyne.io/fyne/v2/test"
 
-	"remindiary/internal/journal"
-	"remindiary/internal/memstore"
+	"github.com/grantstephens/remindiary/internal/journal"
+	"github.com/grantstephens/remindiary/internal/memstore"
 )
 
 func TestYearsAgoLabel(t *testing.T) {

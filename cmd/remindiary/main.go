@@ -14,8 +14,8 @@ import (
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
 
-	"remindiary/internal/boltstore"
-	"remindiary/internal/ui"
+	"github.com/grantstephens/remindiary/internal/boltstore"
+	"github.com/grantstephens/remindiary/internal/ui"
 )
 
 // appID must match the ID in FyneApp.toml; it determines where Fyne puts the

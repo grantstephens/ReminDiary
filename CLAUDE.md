@@ -21,6 +21,7 @@ go test -tags ci ./internal/csvio -run TestImportSkipsExisting   # single test
 make run            # real desktop window (needs GL/X libs; `make deps` reports gaps)
 make run-headless   # full startup path, software driver, exits immediately
 make apk            # Android package (needs fyne CLI + ANDROID_HOME/ANDROID_NDK_HOME)
+make apk RELEASE=1 ABI=arm64   # ~25MB single-ABI release build for a real phone
 ```
 
 `TAGS` defaults to `ci`, which selects Fyne's software driver so every target works on a

@@ -1,4 +1,4 @@
-module remindiary
+module github.com/grantstephens/remindiary
 
 go 1.26
 

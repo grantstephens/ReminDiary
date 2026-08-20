@@ -12,8 +12,8 @@ import (
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 
-	"remindiary/internal/csvio"
-	"remindiary/internal/journal"
+	"github.com/grantstephens/remindiary/internal/csvio"
+	"github.com/grantstephens/remindiary/internal/journal"
 )
 
 // maxReportedRows caps how many failed rows the result dialog quotes, so a

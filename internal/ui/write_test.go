@@ -7,8 +7,8 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/test"
 
-	"remindiary/internal/journal"
-	"remindiary/internal/memstore"
+	"github.com/grantstephens/remindiary/internal/journal"
+	"github.com/grantstephens/remindiary/internal/memstore"
 )
 
 var fixedNow = time.Date(2026, 8, 19, 18, 42, 0, 0, time.UTC)

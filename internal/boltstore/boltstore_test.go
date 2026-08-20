@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"remindiary/internal/boltstore"
-	"remindiary/internal/journal"
-	"remindiary/internal/storetest"
+	"github.com/grantstephens/remindiary/internal/boltstore"
+	"github.com/grantstephens/remindiary/internal/journal"
+	"github.com/grantstephens/remindiary/internal/storetest"
 )
 
 func TestBoltStoreSatisfiesContract(t *testing.T) {

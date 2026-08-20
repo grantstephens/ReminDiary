@@ -14,7 +14,7 @@ import (
 
 	bolt "go.etcd.io/bbolt"
 
-	"remindiary/internal/journal"
+	"github.com/grantstephens/remindiary/internal/journal"
 )
 
 // SchemaVersion is the on-disk layout version this package writes and reads.

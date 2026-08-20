@@ -13,6 +13,17 @@ APK    := remindiary.apk
 # symlinked into cmd/remindiary so fyne finds the metadata it needs.
 MAINDIR := cmd/remindiary
 FYNE_APK := $(MAINDIR)/ReminDiary.apk
+
+# ABI selects which architectures go into the APK. Unset builds all four, which
+# is what you want for an emulator but quadruples the download for a phone:
+#
+#     make apk RELEASE=1 ABI=arm64    # ~25MB, what a real device needs
+#     make apk                        # ~122MB debug, all four ABIs
+#
+# RELEASE=1 adds --release. It only saves about 19% on its own — dropping the
+# unused ABIs is what actually shrinks the package.
+ABI ?=
+ANDROID_TARGET := android$(if $(ABI),/$(ABI),)
 TAGS   ?= ci
 
 # Only pass -tags to go when TAGS is non-empty; "-tags " alone is an error.
@@ -61,7 +72,7 @@ check: fmt vet test ## fmt + vet + test
 # committed asset, not a build product — icon.svg beside it is the editable
 # source. The guards exist because fyne's own failure messages do not say which
 # variable to set.
-apk: ## Build an installable Android APK
+apk: ## Build an installable Android APK (RELEASE=1 ABI=arm64 for a real phone)
 	@command -v fyne >/dev/null 2>&1 || { \
 		echo 'fyne CLI not found. Install it with:'; \
 		echo '    go install fyne.io/tools/cmd/fyne@latest'; \
@@ -71,7 +82,7 @@ apk: ## Build an installable Android APK
 	@[ -n "$$ANDROID_NDK_HOME" ] || [ -d "$$ANDROID_HOME/ndk-bundle" ] || { \
 		echo 'ANDROID_NDK_HOME is unset and $$ANDROID_HOME/ndk-bundle does not exist.'; \
 		echo 'Install the NDK and point ANDROID_NDK_HOME at it.'; exit 1; }
-	cd $(MAINDIR) && fyne package -os android -app-id $(APP_ID) $(if $(RELEASE),--release,)
+	cd $(MAINDIR) && fyne package -os $(ANDROID_TARGET) -app-id $(APP_ID) $(if $(RELEASE),--release,)
 	mv $(FYNE_APK) $(APK)
 	@echo '>> built $(APK)'
 

@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"remindiary/internal/journal"
+	"github.com/grantstephens/remindiary/internal/journal"
 )
 
 // bom is the UTF-8 byte order mark that spreadsheet exports often prepend.

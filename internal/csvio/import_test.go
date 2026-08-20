@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"remindiary/internal/csvio"
-	"remindiary/internal/journal"
-	"remindiary/internal/memstore"
+	"github.com/grantstephens/remindiary/internal/csvio"
+	"github.com/grantstephens/remindiary/internal/journal"
+	"github.com/grantstephens/remindiary/internal/memstore"
 )
 
 var importNow = time.Date(2026, 8, 19, 12, 0, 0, 0, time.UTC)
