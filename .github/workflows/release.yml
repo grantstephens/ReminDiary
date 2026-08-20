@@ -1,5 +1,5 @@
-# Builds a signed APK on tag push and attaches it to a GitHub Release, which is
-# what Obtainium (and IzzyOnDroid) watch.
+# Builds a signed APK and AAB on tag push and attaches them to a GitHub Release,
+# which is what Obtainium watches.
 #
 # Required repository secrets:
 #   ANDROID_KEYSTORE_BASE64  - base64 of your .keystore file
@@ -7,7 +7,7 @@
 #   ANDROID_KEY_ALIAS
 #   ANDROID_KEY_PASSWORD
 #
-# See README.md "Releasing" for how to generate the keystore and set these.
+# See README.md "Signing setup" for how to generate the keystore and set these.
 name: Release
 
 on:
@@ -22,102 +22,186 @@ on:
 permissions:
   contents: write
 
+env:
+  BUNDLETOOL_VERSION: '1.18.3'
+  FYNE_CLI_VERSION: 'v1.7.2'
+
 jobs:
   check:
     name: Tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
           cache: true
       - run: make check
 
-  apk:
-    name: Signed APK
+  release:
+    name: Signed APK and AAB
     needs: check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ github.event.inputs.tag || github.ref }}
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
           cache: true
 
       # The runner ships an Android SDK and NDK already; fyne only needs to be
-      # told where the NDK is. Pinned to the CLI version this was tested with.
+      # told where the NDK is. `fyne release` also shells out to zip.
       - name: Configure Android toolchain
         run: |
           echo "ANDROID_NDK_HOME=$ANDROID_NDK_LATEST_HOME" >> "$GITHUB_ENV"
           BUILD_TOOLS=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
           echo "$BUILD_TOOLS" >> "$GITHUB_PATH"
-          echo "Using NDK $ANDROID_NDK_LATEST_HOME and build-tools $BUILD_TOOLS"
+          command -v zip >/dev/null || { echo "::error::zip missing"; exit 1; }
 
       - name: Install fyne CLI
-        run: go install fyne.io/tools/cmd/fyne@v1.7.2
+        run: go install fyne.io/tools/cmd/fyne@${{ env.FYNE_CLI_VERSION }}
 
-      # versionName comes from the tag; versionCode from the run number, which
-      # only ever increases. Android refuses to upgrade an installed app unless
-      # versionCode goes up, so it must not be hardcoded to FyneApp.toml's value.
+      # fyne shells out to a `bundletool` binary, so the jar needs a wrapper.
+      - name: Install bundletool
+        run: |
+          mkdir -p "$HOME/.bundletool"
+          curl -fsSL -o "$HOME/.bundletool/bundletool.jar" \
+            "https://github.com/google/bundletool/releases/download/${BUNDLETOOL_VERSION}/bundletool-all-${BUNDLETOOL_VERSION}.jar"
+          printf '#!/bin/sh\nexec java -jar %s/.bundletool/bundletool.jar "$@"\n' "$HOME" \
+            > "$HOME/.bundletool/bundletool"
+          chmod +x "$HOME/.bundletool/bundletool"
+          echo "$HOME/.bundletool" >> "$GITHUB_PATH"
+
+      # versionName is the tag without its leading v. versionCode has to be a
+      # single increasing integer, so pack the version into one:
+      #
+      #     major*10000000 + minor*100000 + patch*1000 + stage*100 + n
+      #
+      # with stage ranked alpha=1, beta=2, rc=3, final=9 (and n=99 for final),
+      # so 1.0.0-alpha.1 < -beta.1 < -beta.2 < -rc.1 < 1.0.0 < 1.0.1-beta.1.
+      # Deriving it from the tag rather than the run number keeps it
+      # reproducible: rebuilding a tag yields the same versionCode.
       - name: Derive version
         id: version
         run: |
+          set -euo pipefail
           TAG="${{ github.event.inputs.tag || github.ref_name }}"
-          echo "name=${TAG#v}" >> "$GITHUB_OUTPUT"
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          VERSION="${TAG#v}"
+          CORE="${VERSION%%-*}"
+          SUFFIX="${VERSION#"$CORE"}"
+          IFS=. read -r MAJOR MINOR PATCH <<EOF
+          $CORE
+          EOF
+          MAJOR=${MAJOR:-0}; MINOR=${MINOR:-0}; PATCH=${PATCH:-0}
+          # The pre-release stage has to be ranked, not just numbered: without
+          # this, -beta.1 and -rc.1 collide on the same versionCode and Android
+          # refuses to upgrade a beta to its release candidate.
+          NUM=$(printf '%s' "$SUFFIX" | grep -oE '[0-9]+$' || true)
+          NUM=${NUM:-0}
+          case "$SUFFIX" in
+            '')       STAGE=9; NUM=99 ;;
+            -alpha*)  STAGE=1 ;;
+            -beta*)   STAGE=2 ;;
+            -rc*)     STAGE=3 ;;
+            *) echo "::error::unrecognised pre-release suffix '$SUFFIX' in $TAG (expected -alpha/-beta/-rc)"; exit 1 ;;
+          esac
+          PRE=$((STAGE * 100 + NUM))
+          for n in "$MAJOR" "$MINOR" "$PATCH" "$NUM"; do
+            case "$n" in *[!0-9]*|'') echo "::error::bad version component in $TAG"; exit 1;; esac
+          done
+          [ "$MINOR" -le 99 ] && [ "$PATCH" -le 99 ] && [ "$NUM" -le 99 ] || {
+            echo "::error::version component out of range for versionCode packing: $TAG"; exit 1; }
+          CODE=$((MAJOR * 10000000 + MINOR * 100000 + PATCH * 1000 + PRE))
+          echo "tag=$TAG"          >> "$GITHUB_OUTPUT"
+          echo "name=$VERSION"     >> "$GITHUB_OUTPUT"
+          echo "code=$CODE"        >> "$GITHUB_OUTPUT"
+          echo "Building $TAG as versionName=$VERSION versionCode=$CODE"
 
-      # All four ABIs: this build goes to strangers' phones, not just yours.
-      - name: Build APK
-        working-directory: cmd/remindiary
-        run: |
-          fyne package -os android \
-            -app-id xyz.hub13.remindiary \
-            --app-version "${{ steps.version.outputs.name }}" \
-            --app-build "${{ github.run_number }}" \
-            --release
-          mv ReminDiary.apk "$GITHUB_WORKSPACE/unsigned.apk"
-
-      # fyne signs with its own built-in debug key. Strip that and re-sign with
-      # the real one: Android identifies an app by its signing certificate, so
-      # every release must carry the same key or users cannot upgrade.
-      - name: Sign APK
+      - name: Decode keystore
         env:
           KS_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$KS_B64" ]; then
+            echo "::error::ANDROID_KEYSTORE_BASE64 is not set. See README.md 'Signing setup'."
+            exit 1
+          fi
+          printf '%s' "$KS_B64" | base64 -d > "$RUNNER_TEMP/keystore.jks"
+
+      # `fyne release` rather than `fyne package`: fyne gates targetSdkVersion 35
+      # on the release path, and `fyne package` emits 29, which makes Android warn
+      # the user that the app was built for an older version of Android.
+      # The bundle carries every ABI so Play, and the universal APK below, cover
+      # any device.
+      - name: Build signed AAB
+        env:
           KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           KEY_PASS: ${{ secrets.ANDROID_KEY_PASSWORD }}
           KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
         run: |
-          if [ -z "$KS_B64" ]; then
-            echo "::error::ANDROID_KEYSTORE_BASE64 is not set. See README.md 'Releasing'."
-            exit 1
-          fi
-          printf '%s' "$KS_B64" | base64 -d > keystore.jks
-          zip -q -d unsigned.apk 'META-INF/*.RSA' 'META-INF/*.SF' 'META-INF/*.MF' || true
-          zipalign -p -f 4 unsigned.apk aligned.apk
-          apksigner sign \
-            --ks keystore.jks \
-            --ks-pass env:KS_PASS \
-            --ks-key-alias "$KEY_ALIAS" \
-            --key-pass env:KEY_PASS \
-            --out remindiary-${{ steps.version.outputs.tag }}.apk \
-            aligned.apk
-          rm -f keystore.jks unsigned.apk aligned.apk
+          make release \
+            KEYSTORE="$RUNNER_TEMP/keystore.jks" \
+            KEY_NAME="$KEY_ALIAS" \
+            KEYSTORE_PASS="$KS_PASS" \
+            KEY_PASS="$KEY_PASS" \
+            VERSION_NAME="${{ steps.version.outputs.name }}" \
+            VERSION_CODE="${{ steps.version.outputs.code }}"
 
-      - name: Verify signature
+      # Obtainium installs APKs, not bundles, so flatten the AAB into a single
+      # universal APK and sign that with the same key.
+      - name: Build universal APK
+        env:
+          KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_PASS: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
         run: |
-          apksigner verify --print-certs "remindiary-${{ steps.version.outputs.tag }}.apk"
-          aapt dump badging "remindiary-${{ steps.version.outputs.tag }}.apk" \
-            | grep -E "^package|sdkVersion|native-code"
+          set -euo pipefail
+          bundletool build-apks \
+            --bundle=remindiary.aab \
+            --output="$RUNNER_TEMP/app.apks" \
+            --mode=universal \
+            --ks="$RUNNER_TEMP/keystore.jks" \
+            --ks-pass="pass:$KS_PASS" \
+            --ks-key-alias="$KEY_ALIAS" \
+            --key-pass="pass:$KEY_PASS"
+          unzip -p "$RUNNER_TEMP/app.apks" universal.apk \
+            > "remindiary-${{ steps.version.outputs.tag }}.apk"
+          mv remindiary.aab "remindiary-${{ steps.version.outputs.tag }}.aab"
+
+      # Assertions, not just output: a silent regression here ships a broken or
+      # over-permissioned build to everyone running Obtainium.
+      - name: Verify artefacts
+        run: |
+          set -euo pipefail
+          APK="remindiary-${{ steps.version.outputs.tag }}.apk"
+
+          apksigner verify --print-certs "$APK"
+
+          TARGET=$(aapt dump badging "$APK" | sed -n "s/.*targetSdkVersion:'\([0-9]*\)'.*/\1/p")
+          echo "targetSdkVersion=$TARGET"
+          [ "$TARGET" -ge 35 ] || { echo "::error::targetSdkVersion $TARGET < 35"; exit 1; }
+
+          PERMS=$(aapt dump permissions "$APK" | grep -c 'uses-permission' || true)
+          echo "declared permissions: $PERMS"
+          [ "$PERMS" -eq 0 ] || {
+            aapt dump permissions "$APK"
+            echo "::error::APK declares $PERMS permission(s); expected none"; exit 1; }
+
+          CODE=$(aapt dump badging "$APK" | sed -n "s/.*versionCode='\([0-9]*\)'.*/\1/p")
+          [ "$CODE" = "${{ steps.version.outputs.code }}" ] || {
+            echo "::error::versionCode $CODE != ${{ steps.version.outputs.code }}"; exit 1; }
+
+          aapt dump badging "$APK" | grep -E '^package|native-code'
 
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.tag }}
-          files: remindiary-${{ steps.version.outputs.tag }}.apk
+          files: |
+            remindiary-${{ steps.version.outputs.tag }}.apk
+            remindiary-${{ steps.version.outputs.tag }}.aab
           generate_release_notes: true
           # Any tag carrying a semver pre-release suffix (-beta.1, -rc.2, -alpha)
           # is published as a pre-release. Obtainium can then be told whether to

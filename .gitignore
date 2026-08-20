@@ -16,6 +16,9 @@
 # fyne rewrites FyneApp.toml on every build; the Makefile snapshots it here.
 .FyneApp.toml.bak
 
+# Generated from AndroidManifest.xml.in at build time.
+cmd/remindiary/AndroidManifest.xml
+
 # Go
 *.test
 *.out

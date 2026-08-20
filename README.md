@@ -7,10 +7,11 @@ Everything lives on your phone. No account, no sync, no telemetry: ReminDiary co
 networking code whatsoever. Your entries are yours, and CSV export means they stay that
 way even if you stop using this.
 
-> **On permissions:** the APK declares `INTERNET`, `READ_EXTERNAL_STORAGE` and
-> `WRITE_EXTERNAL_STORAGE`. None of these are used by ReminDiary — they are boilerplate
-> from Fyne's default Android manifest template, which every Fyne app inherits. Verify
-> for yourself: there is no `net/http` import anywhere in the source.
+> **On permissions:** ReminDiary declares **no Android permissions at all**. Fyne's
+> default manifest template adds `INTERNET` and both external-storage permissions to
+> every app built with it, so the project ships its own manifest
+> ([`AndroidManifest.xml.in`](cmd/remindiary/AndroidManifest.xml.in)) that declares none.
+> Check any release for yourself with `aapt dump permissions <apk>` — the list is empty.
 
 [![Licence: GPL v3](https://img.shields.io/badge/Licence-GPLv3-blue.svg)](LICENSE)
 [![Release](https://img.shields.io/github/v/release/grantstephens/ReminDiary?include_prereleases)](https://github.com/grantstephens/ReminDiary/releases)
@@ -123,6 +124,16 @@ make install                    # build and push to a connected device via adb
 Dropping the unused ABIs is what shrinks the package; `RELEASE=1` alone only saves about
 19%, since it just strips DWARF.
 
+`make apk` is for development. It targets SDK 29, so Android shows a "built for an older
+version of Android" warning on install — Fyne only emits SDK 35 on the `fyne release`
+path. Published releases go through `make release` and do not have that problem.
+
+Both targets generate `cmd/remindiary/AndroidManifest.xml` from
+`AndroidManifest.xml.in`, substituting `VERSION_CODE` and `VERSION_NAME`. Fyne uses a
+hand-written manifest verbatim when one is present, which is how the permissions get
+dropped — but it also means Fyne's `--app-version`/`--app-build` flags are ignored, hence
+the substitution.
+
 ## Releasing
 
 Pushing a tag builds, signs and publishes automatically — see
@@ -132,12 +143,26 @@ Pushing a tag builds, signs and publishes automatically — see
 git tag v1.0.0 && git push origin v1.0.0
 ```
 
-The workflow runs the test suite, builds an all-ABI APK, re-signs it with the project's
-release key and attaches it to a GitHub Release. Tags carrying a semver pre-release
-suffix (`v1.0.0-beta.1`) are published as pre-releases.
+The workflow runs the test suite, builds a signed all-ABI bundle with `fyne release`,
+flattens it into a universal APK, asserts the result targets SDK 35 and declares zero
+permissions, and attaches both the `.apk` and the `.aab` to a GitHub Release. Tags
+carrying a semver pre-release suffix (`v1.0.0-beta.1`) are published as pre-releases.
 
-`versionName` comes from the tag. `versionCode` comes from the workflow run number, so it
-always increases — Android refuses to upgrade an installed app otherwise.
+`versionName` is the tag without its leading `v`. `versionCode` is packed from the same
+tag as `major*10000000 + minor*100000 + patch*1000 + stage*100 + n`, where the stage
+ranks `alpha=1, beta=2, rc=3, final=9`:
+
+| Tag | versionCode |
+|---|---|
+| `v1.0.0-alpha.1` | 10000101 |
+| `v1.0.0-beta.1` | 10000201 |
+| `v1.0.0-rc.1` | 10000301 |
+| `v1.0.0` | 10000999 |
+| `v1.0.1-beta.1` | 10001201 |
+
+Android refuses to upgrade an installed app unless `versionCode` increases, and ranking
+the stage is what stops `-beta.1` and `-rc.1` colliding. Deriving it from the tag rather
+than the CI run number also means rebuilding a tag reproduces the same `versionCode`.
 
 ### Signing setup
 
@@ -166,19 +191,20 @@ gh secret set ANDROID_KEY_ALIAS
 gh secret set ANDROID_KEY_PASSWORD
 ```
 
-### Google Play
+### Building a release locally
 
-`make apk` targets SDK 29, which Play rejects, and `--release` does not change that —
-Fyne gates the SDK 35 target on `fyne release` rather than `fyne package`. For a
-Play-ready signed bundle you also need [`bundletool`](https://developer.android.com/tools/bundletool):
+`make release` produces the same signed `.aab` that CI does, and is also what you would
+upload to Google Play. It needs `zip` and
+[`bundletool`](https://developer.android.com/tools/bundletool) on PATH:
 
 ```bash
 make release KEYSTORE=~/keys/remindiary.keystore KEY_NAME=remindiary
 ```
 
 Passwords are prompted for on stdin rather than passed as variables, so they stay out of
-your shell history. Do not set `ABI` for a release bundle: it should carry every ABI and
-let Play split it per device.
+your shell history — `KEYSTORE_PASS`/`KEY_PASS` exist only for CI, which has no stdin to
+prompt on. Do not set `ABI` for a release bundle: it should carry every ABI and let Play
+(or the universal APK) cover any device.
 
 ## Licence
 
