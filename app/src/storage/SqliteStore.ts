@@ -83,7 +83,16 @@ export class SqliteStore implements Store {
       }
       await this.db.exec('COMMIT');
     } catch (err) {
-      await this.db.exec('ROLLBACK');
+      try {
+        await this.db.exec('ROLLBACK');
+      } catch {
+        // SQLite auto-aborts the transaction on the severe error classes -
+        // disk full, I/O error, out of memory, interrupt - and ROLLBACK then
+        // throws "cannot rollback - no transaction is active". Letting that
+        // escape would replace the real write failure with a confusing
+        // secondary one, and a full disk mid-import on a phone is exactly
+        // when the original error matters most.
+      }
       throw err;
     }
   }
