@@ -25,3 +25,7 @@ cmd/remindiary/AndroidManifest.xml
 
 # Design docs and plans — kept locally, not published.
 docs/
+
+# Design docs and plans for the React Native app, same rule as docs/ above:
+# kept locally, not published.
+app/design/
