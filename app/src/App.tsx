@@ -5,6 +5,7 @@ import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { JournalProvider, useJournal } from './JournalContext';
+import type { UnsavedGuard } from './JournalContext';
 import type { Store } from './domain/store';
 import { openStore } from './storage/openStore';
 import { DataScreen } from './screens/Data';
@@ -31,7 +32,9 @@ export default function App() {
     openStore().then(
       (opened) => {
         if (cancelled) {
-          void opened.close();
+          // .catch, not void: void discards the value, not the rejection, and
+          // an unhandled rejection here would be a crash on a fast unmount.
+          opened.close().catch(() => {});
           return;
         }
         setStore(opened);
@@ -79,6 +82,38 @@ function revealMemories() {
   if (navigationRef.isReady()) navigationRef.navigate('Memories');
 }
 
+/** The subset of a navigation object handleTabPress needs. */
+interface TabNavigation {
+  isFocused(): boolean;
+  navigate(name: string): void;
+}
+
+/**
+ * handleTabPress decides whether a tab press may proceed.
+ *
+ * Exported and given an explicit signature purely so it can be tested: inline
+ * inside screenListeners it is unreachable without mounting a whole navigator,
+ * and it is the trickiest logic in this file - it could be inverted or dead
+ * and the shell's smoke tests would not notice.
+ */
+export function handleTabPress(
+  guard: React.MutableRefObject<UnsavedGuard | null>,
+  e: { preventDefault: () => void },
+  navigation: TabNavigation,
+  routeName: string,
+): void {
+  const check = guard.current;
+  // Nothing unsaved, or the user pressed the tab they are already on.
+  if (check === null || navigation.isFocused()) return;
+  e.preventDefault();
+  void check().then((mayLeave) => {
+    if (mayLeave) {
+      guard.current = null;
+      navigation.navigate(routeName);
+    }
+  });
+}
+
 /**
  * Tabs is separate from App so it can call useJournal — the guard ref it needs
  * lives in the provider App renders.
@@ -92,23 +127,30 @@ function Tabs() {
       screenOptions={{ headerShown: false }}
       screenListeners={({ navigation, route }) => ({
         tabPress: (e: { preventDefault: () => void }) => {
-          const check = guard.current;
-          // Nothing unsaved, or the user pressed the tab they are already on.
-          if (check === null || navigation.isFocused()) return;
-          e.preventDefault();
-          void check().then((mayLeave) => {
-            if (mayLeave) {
-              guard.current = null;
-              navigation.navigate(route.name);
-            }
-          });
+          handleTabPress(guard, e, navigation, route.name);
         },
       })}
     >
-      <Tab.Screen name="Write" component={WriteScreen} />
-      <Tab.Screen name="Memories" component={MemoriesScreen} />
-      <Tab.Screen name="Stats" component={StatsScreen} />
-      <Tab.Screen name="Data" component={DataScreen} />
+      <Tab.Screen
+        name="Write"
+        component={WriteScreen}
+        options={{ tabBarButtonTestID: 'tab-Write' }}
+      />
+      <Tab.Screen
+        name="Memories"
+        component={MemoriesScreen}
+        options={{ tabBarButtonTestID: 'tab-Memories' }}
+      />
+      <Tab.Screen
+        name="Stats"
+        component={StatsScreen}
+        options={{ tabBarButtonTestID: 'tab-Stats' }}
+      />
+      <Tab.Screen
+        name="Data"
+        component={DataScreen}
+        options={{ tabBarButtonTestID: 'tab-Data' }}
+      />
     </Tab.Navigator>
   );
 }
