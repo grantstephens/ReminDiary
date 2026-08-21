@@ -22,7 +22,7 @@ export async function pickCsv(): Promise<PickedFile | null> {
   return { name: asset.name, text: await file.text() };
 }
 
-export async function saveCsv(name: string, text: string): Promise<string | null> {
+export async function saveCsv(name: string, text: string): Promise<string> {
   const file = new File(Paths.cache, name);
   // create() throws if the file already exists, and an export a minute after
   // the last one has the same dated name.

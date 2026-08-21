@@ -159,6 +159,21 @@ test('declining the overwrite confirmation imports nothing', async () => {
   await expect(store.dates()).resolves.toEqual([]);
 });
 
+// pickCsv used to sit outside the try/catch in runImport, invoked as `void
+// runImport()`: a rejecting document picker (or a stale/unreadable SAF
+// content URI) became an unhandled rejection with no dialog and no receipt.
+test('a rejecting picker is reported, not swallowed', async () => {
+  pickCsv.mockRejectedValue(new Error('could not read that file'));
+  await renderData();
+  await act(async () => {
+    fireEvent.press(screen.getByTestId('data-import'));
+  });
+  expect(notify).toHaveBeenCalledWith(
+    'Could not import that file',
+    'could not read that file',
+  );
+});
+
 test('a file with a bad header is reported, not swallowed', async () => {
   pickCsv.mockResolvedValue({ name: 'wrong.csv', text: 'a,b\n1,2\n' });
   await renderData();
@@ -217,15 +232,6 @@ test('a failing store surfaces as a notification rather than a crash', async () 
     'database is locked',
   );
   expect(saveCsv).not.toHaveBeenCalled();
-});
-
-test('a cancelled export is silent', async () => {
-  saveCsv.mockResolvedValue(null);
-  await renderData();
-  await act(async () => {
-    fireEvent.press(screen.getByTestId('data-export'));
-  });
-  expect(notify).not.toHaveBeenCalled();
 });
 
 describe('formatImportResult', () => {

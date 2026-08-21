@@ -20,7 +20,10 @@ instead of relaying keystrokes to a dummy `EditText`. The Go app in this reposit
 still ships and still works; the two coexist until parity, and diary data crosses between
 them as CSV, which both write byte-identically.
 
-Its own commands live in `app/README.md` and its own gate is `cd app && npm run check` —
+Its own commands live in `app/README.md` and its own gate is
+`cd app && mise exec -- npm run check` — the `mise exec` prefix matters, because in a
+non-interactive shell a bare `node` resolves mise's *global* install rather than this repo's
+pin, which silently shadowed the pinned 24.16.0 with 26.7.0 for four tasks —
 `make check` covers the Go code only. Its design spec and implementation plan sit in
 `app/design/`, which is gitignored exactly like `docs/`: this repository is public and
 design documents are not published. They exist on disk; do not commit them, and do not

@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import React from 'react';
 
-import { JournalProvider } from '../JournalContext';
+import { JournalProvider, useJournal, type UnsavedGuard } from '../JournalContext';
 import type { Store } from '../domain/store';
 import { SqliteStore } from '../storage/SqliteStore';
 import { openNodeSqlite } from '../storage/nodeSqlite';
@@ -211,4 +211,45 @@ test('declining the discard stays put', async () => {
   });
   expect(screen.getByTestId('write-header').props.children).toBe('Wed 19 Aug 2026');
   expect(screen.getByTestId('write-body').props.value).toBe('unsaved');
+});
+
+function GuardProbe({ onReady }: { onReady: (g: React.MutableRefObject<UnsavedGuard | null>) => void }) {
+  const { guard } = useJournal();
+  onReady(guard);
+  return null;
+}
+
+// This is the guard App.tsx's handleTabPress consults directly, not the
+// step()/save() confirm() prompts above - it proves the guard the tab
+// navigator sees is not one-shot.
+test('confirming a discard clears the editor and re-arms the guard', async () => {
+  let guardRef: React.MutableRefObject<UnsavedGuard | null> | null = null;
+  render(
+    <JournalProvider store={store} now={now} onSaved={onSaved}>
+      <WriteScreen />
+      <GuardProbe onReady={(g) => { guardRef = g; }} />
+    </JournalProvider>,
+  );
+  await waitFor(() => expect(screen.getByTestId('write-header')).toBeTruthy());
+
+  await fireEvent.changeText(screen.getByTestId('write-body'), 'unsaved words');
+  await waitFor(() => expect(guardRef!.current).not.toBeNull());
+
+  // Confirming must actually discard, not merely say it will.
+  await act(async () => {
+    await guardRef!.current!();
+  });
+  expect(confirm).toHaveBeenCalledTimes(1);
+  expect(screen.getByTestId('write-body').props.value).toBe('');
+
+  // Clean editor: the guard disarms, so a later tab press does not nag.
+  await waitFor(() => expect(guardRef!.current).toBeNull());
+
+  // Typing again re-arms it. This is the assertion the one-shot bug failed.
+  await fireEvent.changeText(screen.getByTestId('write-body'), 'more words');
+  await waitFor(() => expect(guardRef!.current).not.toBeNull());
+  await act(async () => {
+    await guardRef!.current!();
+  });
+  expect(confirm).toHaveBeenCalledTimes(2);
 });

@@ -25,7 +25,10 @@ export interface PickedFile {
 export declare function pickCsv(): Promise<PickedFile | null>;
 
 /**
- * saveCsv hands text to the user as a file and returns the name it was given,
- * or null if they cancelled.
+ * saveCsv hands text to the user as a file and returns the name it was given.
+ *
+ * Neither platform can report a cancelled save: Android hands off to a share
+ * sheet and never hears back, and a browser download has no completion event.
+ * So this never resolves null, and callers should not branch on it.
  */
-export declare function saveCsv(name: string, text: string): Promise<string | null>;
+export declare function saveCsv(name: string, text: string): Promise<string>;

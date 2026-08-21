@@ -59,15 +59,23 @@ export function WriteScreen() {
       guard.current = null;
       return;
     }
-    guard.current = () =>
-      confirm(
+    guard.current = async () => {
+      const discard = await confirm(
         'Discard changes?',
         `Your unsaved changes to ${displayDate(date)} will be lost.`,
       );
+      if (discard) {
+        // Actually discard. Without this the prompt is a lie - the text
+        // survived - and, worse, `dirty` never goes false so this effect
+        // never re-runs and the guard is never re-armed.
+        setText(loaded);
+      }
+      return discard;
+    };
     return () => {
       guard.current = null;
     };
-  }, [dirty, date, guard]);
+  }, [dirty, date, loaded, guard]);
 
   const step = async (days: number) => {
     const target = addDays(date, days);

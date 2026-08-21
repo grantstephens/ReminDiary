@@ -108,7 +108,11 @@ export function handleTabPress(
   e.preventDefault();
   void check().then((mayLeave) => {
     if (mayLeave) {
-      guard.current = null;
+      // Deliberately does NOT clear guard.current. The guard reflects "Write
+      // is holding unsaved edits", which navigating away does not change -
+      // Write's own effect disarms it when the editor stops being dirty.
+      // Clearing it here made the prompt one-shot: after a single confirmed
+      // discard every later tab press navigated away in silence.
       navigation.navigate(routeName);
     }
   });

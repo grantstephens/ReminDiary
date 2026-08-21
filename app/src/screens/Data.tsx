@@ -44,11 +44,15 @@ export function DataScreen() {
       if (!go) return;
     }
 
-    const picked = await pickCsv();
-    if (picked === null) return; // cancelled, which is not an error
-
     setBusy(true);
     try {
+      // pickCsv is INSIDE the try: a rejecting document picker, or an
+      // unreadable/stale SAF content URI, would otherwise become an unhandled
+      // rejection - no dialog, no receipt, nothing - since runImport is
+      // invoked as `void runImport()`.
+      const picked = await pickCsv();
+      if (picked === null) return; // cancelled, which is not an error
+
       const result = await importCsv(picked.text, store, overwrite, now());
       bump();
       await notify('Import complete', formatImportResult(result));
@@ -64,7 +68,6 @@ export function DataScreen() {
     try {
       const text = await exportCsv(store);
       const written = await saveCsv(exportFileName(today(now())), text);
-      if (written === null) return; // cancelled
       await notify('Export complete', `Your journal has been written to ${written}.`);
     } catch (err) {
       await notify('Could not export your journal', (err as Error).message);

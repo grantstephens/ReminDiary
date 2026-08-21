@@ -23,13 +23,22 @@ export function pickCsv(): Promise<PickedFile | null> {
   });
 }
 
-export async function saveCsv(name: string, text: string): Promise<string | null> {
+export async function saveCsv(name: string, text: string): Promise<string> {
   const blob = new Blob([text], { type: 'text/csv;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
   link.download = name;
+  // Appended before clicking, and revoked on a later tick. A detached anchor
+  // plus a synchronous revoke works in Chrome and silently drops the download
+  // in other browsers - and this is the only route a journal leaves the web
+  // build, so "works on my browser" is not good enough.
+  link.style.display = 'none';
+  document.body.appendChild(link);
   link.click();
-  URL.revokeObjectURL(url);
+  setTimeout(() => {
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }, 0);
   return name;
 }

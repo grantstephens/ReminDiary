@@ -9,8 +9,8 @@ they live in `app/design/`, which is gitignored, same as `docs/` at the root.
 
 ## Commands
 
-    mise install       # the toolchain: node, go, eas-cli
-    npm run check      # tsc --noEmit && jest — the gate before any commit
+    mise install                    # the toolchain: node, go, eas-cli
+    mise exec -- npm run check      # tsc --noEmit && jest — the gate before any commit
     npm test           # jest
     npm start          # Expo dev server; scan the QR code with Expo Go
     npm run web        # browser build, the no-device iteration story

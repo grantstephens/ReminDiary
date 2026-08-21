@@ -75,8 +75,9 @@ describe('handleTabPress', () => {
     expect(navigation.navigate).not.toHaveBeenCalled();
   });
 
-  test('guard registered, another tab pressed, guard resolves true: navigates and clears the guard', async () => {
-    const guard = makeGuard(async () => true);
+  test('guard registered, another tab pressed, guard resolves true: navigates and leaves the guard unchanged', async () => {
+    const check: UnsavedGuard = async () => true;
+    const guard = makeGuard(check);
     const e = { preventDefault: jest.fn() };
     const navigation = { isFocused: () => false, navigate: jest.fn() };
 
@@ -85,7 +86,11 @@ describe('handleTabPress', () => {
     expect(e.preventDefault).toHaveBeenCalled();
     await flush();
     expect(navigation.navigate).toHaveBeenCalledWith('Memories');
-    expect(guard.current).toBeNull();
+    // NOT cleared here. Clearing it made the guard one-shot: after a single
+    // confirmed discard, every later tab press navigated away in silence
+    // because the arming effect (deps [dirty, date, guard]) never re-ran.
+    // Write's own effect owns disarming the guard when it stops being dirty.
+    expect(guard.current).toBe(check);
   });
 
   test('guard registered, another tab pressed, guard resolves false: does not navigate and keeps the guard', async () => {
