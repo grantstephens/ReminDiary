@@ -6,6 +6,7 @@
     "@react-navigation/bottom-tabs": "^7.18.17",
     "@react-navigation/native": "^7.3.17",
     "expo": "~57.0.15",
+    "expo-asset": "~57.0.13",
     "expo-document-picker": "~57.0.1",
     "expo-file-system": "~57.0.5",
     "expo-sharing": "~57.0.14",

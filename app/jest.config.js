@@ -25,6 +25,7 @@ module.exports = {
       displayName: 'screens',
       preset: 'jest-expo',
       testMatch: ['<rootDir>/src/**/*.test.tsx'],
+      setupFiles: ['<rootDir>/jest/setupScreens.ts'],
     },
   ],
 };
