@@ -4,11 +4,14 @@ import { SqliteStore } from '../storage/SqliteStore';
 import { openNodeSqlite } from '../storage/nodeSqlite';
 import { exportCsv, exportFileName } from './export';
 
+// created and updated deliberately DIFFER. With one value in both columns a
+// regression that swapped them - or wrote one of them twice - produces
+// byte-identical output and passes every assertion below.
 const entry = (date: string, body: string): Entry => ({
   date,
   body,
   created: '2026-08-19T18:42:00Z',
-  updated: '2026-08-19T18:42:00Z',
+  updated: '2026-08-20T09:15:00Z',
 });
 
 const newStore = () => SqliteStore.open(openNodeSqlite(':memory:'));
@@ -24,8 +27,8 @@ test('exports in ascending date order', async () => {
   await store.putAll([entry('2026-08-20', 'b'), entry('2026-08-19', 'a')]);
   await expect(exportCsv(store)).resolves.toBe(
     'date,body,created,updated\n' +
-      '2026-08-19,a,2026-08-19T18:42:00Z,2026-08-19T18:42:00Z\n' +
-      '2026-08-20,b,2026-08-19T18:42:00Z,2026-08-19T18:42:00Z\n',
+      '2026-08-19,a,2026-08-19T18:42:00Z,2026-08-20T09:15:00Z\n' +
+      '2026-08-20,b,2026-08-19T18:42:00Z,2026-08-20T09:15:00Z\n',
   );
   await store.close();
 });
@@ -38,7 +41,7 @@ test('quotes a body with commas and newlines the way the spec shows', async () =
   await expect(exportCsv(store)).resolves.toBe(
     'date,body,created,updated\n' +
       '2026-08-19,"Multi-line bodies work fine,\nquotes and commas too",' +
-      '2026-08-19T18:42:00Z,2026-08-19T18:42:00Z\n',
+      '2026-08-19T18:42:00Z,2026-08-20T09:15:00Z\n',
   );
   await store.close();
 });
