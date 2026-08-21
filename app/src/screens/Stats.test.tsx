@@ -94,3 +94,38 @@ test('statsLines renders the empty case as one line', () => {
     'No entries yet. Write something today.',
   ]);
 });
+
+// ORDER is part of the contract and getByText cannot pin it - a screen that
+// rendered these four lines in any sequence would satisfy every per-line
+// query. toEqual on the array pins it at the unit level...
+test('statsLines renders the four lines in order', () => {
+  expect(statsLines({ current: 5, longest: 9, total: 42, since: '2019-03-02' })).toEqual([
+    'Current streak: 5 days',
+    'Longest streak: 9 days',
+    'Total entries: 42',
+    'Writing since: Sat 2 Mar 2019',
+  ]);
+});
+
+// ...and this pins that the SCREEN actually renders them in that order, using
+// the stats-line-<index> testIDs the screen already produces.
+test('the screen renders the lines in the order statsLines returns', async () => {
+  await store.putAll(
+    ['2026-08-17', '2026-08-18', '2026-08-19'].map((date) => ({
+      date,
+      body: 'x',
+      created: `${date}T12:00:00Z`,
+      updated: `${date}T12:00:00Z`,
+    })),
+  );
+  renderStats();
+  await waitFor(() => expect(screen.getByTestId('stats-line-0')).toBeTruthy());
+  expect(
+    [0, 1, 2, 3].map((i) => screen.getByTestId(`stats-line-${i}`).props.children),
+  ).toEqual([
+    'Current streak: 3 days',
+    'Longest streak: 3 days',
+    'Total entries: 3',
+    'Writing since: Mon 17 Aug 2026',
+  ]);
+});
