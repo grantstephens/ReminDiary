@@ -1,7 +1,9 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import React from 'react';
 
-import { JournalProvider } from '../JournalContext';
+import { Text } from 'react-native';
+
+import { JournalProvider, useJournal } from '../JournalContext';
 import type { Store } from '../domain/store';
 import { SqliteStore } from '../storage/SqliteStore';
 import { openNodeSqlite } from '../storage/nodeSqlite';
@@ -34,19 +36,26 @@ afterEach(async () => {
   await store.close();
 });
 
+/** Renders the revision counter so a missing bump() is visible from a test. */
+function RevisionProbe() {
+  const { revision } = useJournal();
+  return <Text testID="revision">{String(revision)}</Text>;
+}
+
 // render() in this @testing-library/react-native version resolves
 // asynchronously (concurrent-root rendering), so a bare call races the
 // screen queries that follow it. renderData waits for a stable element
 // before returning, the same convention Write.test.tsx's renderWrite uses.
-async function renderData(target: Store = store) {
+const renderData = async (target: Store = store) => {
   const view = render(
     <JournalProvider store={target} now={now}>
       <DataScreen />
+      <RevisionProbe />
     </JournalProvider>,
   );
   await waitFor(() => expect(screen.getByTestId('data-import')).toBeTruthy());
   return view;
-}
+};
 
 test('imports the chosen file and reports the result', async () => {
   pickCsv.mockResolvedValue({ name: 'journal.csv', text: CSV });
@@ -61,6 +70,10 @@ test('imports the chosen file and reports the result', async () => {
     'Import complete',
     'Imported 1. Skipped 0 existing. Failed 0.',
   );
+  // Every other screen keys off `revision`; without this bump a successful
+  // import leaves Write, Memories and Stats showing stale data on a device,
+  // which no amount of testing THIS screen alone would reveal.
+  expect(screen.getByTestId('revision').props.children).toBe('1');
 });
 
 // A cancelled picker is not an error and must produce no dialog at all.
@@ -86,6 +99,51 @@ test('overwrite is off by default and asks before arming', async () => {
     'Overwrite existing entries?',
     'Entries in the file will replace entries you already have for the same dates. ' +
       'This cannot be undone.',
+  );
+});
+
+// The flag's EFFECT, not just its confirmation dialog. Every other test in
+// this file imports a date that does not already exist, so `overwrite` never
+// changes the outcome - meaning a runImport that hardcoded `false` would pass
+// all of them. These two pin the flag end to end, through the screen.
+test('with overwrite off, an existing date is left alone', async () => {
+  await store.put({
+    date: '2026-08-19',
+    body: 'the original',
+    created: '2020-01-01T00:00:00Z',
+    updated: '2020-01-01T00:00:00Z',
+  });
+  pickCsv.mockResolvedValue({ name: 'journal.csv', text: CSV });
+  await renderData();
+  await act(async () => {
+    fireEvent.press(screen.getByTestId('data-import'));
+  });
+  expect((await store.get('2026-08-19'))?.body).toBe('the original');
+  expect(notify).toHaveBeenCalledWith(
+    'Import complete',
+    'Imported 0. Skipped 1 existing. Failed 0.',
+  );
+});
+
+test('with overwrite on, an existing date is replaced', async () => {
+  await store.put({
+    date: '2026-08-19',
+    body: 'the original',
+    created: '2020-01-01T00:00:00Z',
+    updated: '2020-01-01T00:00:00Z',
+  });
+  pickCsv.mockResolvedValue({ name: 'journal.csv', text: CSV });
+  await renderData();
+  await act(async () => {
+    fireEvent(screen.getByTestId('data-overwrite'), 'valueChange', true);
+  });
+  await act(async () => {
+    fireEvent.press(screen.getByTestId('data-import'));
+  });
+  expect((await store.get('2026-08-19'))?.body).toBe('hello');
+  expect(notify).toHaveBeenCalledWith(
+    'Import complete',
+    'Imported 1. Skipped 0 existing. Failed 0.',
   );
 });
 
@@ -203,6 +261,6 @@ describe('formatImportResult', () => {
     }));
     const text = formatImportResult({ imported: 0, skipped: 0, failed: 8, errors });
     expect(text.split('\n')).toHaveLength(7); // summary + 5 rows + the tail
-    expect(text).toContain('and 3 more.');
+    expect(text).toContain('…and 3 more.');
   });
 });

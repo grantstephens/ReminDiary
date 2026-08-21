@@ -22,7 +22,7 @@ export function formatImportResult(result: ImportResult): string {
   const shown = result.errors.slice(0, MAX_REPORTED_ROWS);
   for (const e of shown) lines.push(formatRowError(e));
   const omitted = result.errors.length - shown.length;
-  if (omitted > 0) lines.push(`and ${omitted} more.`);
+  if (omitted > 0) lines.push(`…and ${omitted} more.`);
   return lines.join('\n');
 }
 

@@ -13,7 +13,15 @@ export interface PickedFile {
   text: string;
 }
 
-/** pickCsv asks for a file and reads it as UTF-8 text. */
+/**
+ * pickCsv asks for a file and reads it as UTF-8 text.
+ *
+ * Resolves null when the user cancels — on native. A browser fires no event
+ * for a dismissed file dialog, so on web a cancelled pick simply never
+ * resolves. Nothing is waiting on it but a dialog that should not appear, so
+ * that is harmless; it is documented here because the contract otherwise
+ * reads as though null were guaranteed on both targets.
+ */
 export declare function pickCsv(): Promise<PickedFile | null>;
 
 /**
