@@ -60,7 +60,16 @@ const ERR_BARE_QUOTE = 'bare " in non-quoted-field';
  * import must be able to report every bad row in a file at once rather than
  * making the user fix them one at a time.
  */
-export function parseCsv(text: string): CsvRecord[] {
+export function parseCsv(source: string): CsvRecord[] {
+  // Go's Reader converts every \r\n in its input to a plain \n - including
+  // inside quoted multiline field values, which its documentation calls out
+  // explicitly - and drops a single trailing \r before EOF. Normalising once,
+  // up front, lets everything below treat \n as the ONLY record terminator and
+  // a lone \r as ordinary field content. That is precisely Go's model, and
+  // getting it wrong is silent: a bare \r treated as a terminator splits one
+  // record into two with no error reported at all.
+  const text = source.replace(/\r\n/g, '\n').replace(/\r$/, '');
+
   const out: CsvRecord[] = [];
   const n = text.length;
   let i = 0;
@@ -70,10 +79,6 @@ export function parseCsv(text: string): CsvRecord[] {
     // Go's reader skips truly blank lines and does not count them as records.
     if (text[i] === '\n') {
       i++;
-      continue;
-    }
-    if (text[i] === '\r' && text[i + 1] === '\n') {
-      i += 2;
       continue;
     }
 
@@ -105,12 +110,12 @@ export function parseCsv(text: string): CsvRecord[] {
         }
         if (error) break;
         // Only a delimiter or an end of record may follow a closing quote.
-        if (i < n && text[i] !== ',' && text[i] !== '\n' && text[i] !== '\r') {
+        if (i < n && text[i] !== ',' && text[i] !== '\n') {
           error = ERR_QUOTE;
           break;
         }
       } else {
-        while (i < n && text[i] !== ',' && text[i] !== '\n' && text[i] !== '\r') {
+        while (i < n && text[i] !== ',' && text[i] !== '\n') {
           if (text[i] === '"') {
             error = ERR_BARE_QUOTE;
             break;
@@ -133,7 +138,6 @@ export function parseCsv(text: string): CsvRecord[] {
       // Resynchronise on the next line so one bad record cannot swallow the file.
       while (i < n && text[i] !== '\n') i++;
     }
-    if (text[i] === '\r') i++;
     if (text[i] === '\n') i++;
 
     out.push(error ? { row, fields: null, error } : { row, fields, error: null });

@@ -12,6 +12,13 @@ describe('quoteField', () => {
     ['a\tb', 'a\tb'],
     ['\tleading tab', '"\tleading tab"'],
     ['\u00A0nbsp-lead', '"\u00A0nbsp-lead"'],
+    // These two are the ONLY cases that distinguish Go's unicode.White_Space
+    // from JavaScript's \s, and they disagree in opposite directions. Without
+    // both, swapping LEADING_SPACE for /^\s/ passes the entire suite.
+    // U+0085 NEL: in Go's set, NOT in JS \s - so it must be quoted.
+    ['\u0085leads', '"\u0085leads"'],
+    // U+FEFF: in JS \s, NOT in Go's set - so it must NOT be quoted.
+    ['\uFEFFleads', '\uFEFFleads'],
     ['', ''],
     ['\\.', '"\\."'],
     ['unicode e-acute é and a seedling \u{1F331}', 'unicode e-acute é and a seedling \u{1F331}'],
@@ -111,6 +118,24 @@ describe('parseCsv', () => {
   test('an empty string parses to no records', () => {
     expect(parseCsv('')).toEqual([]);
   });
+
+  // Go's reader ends a record only at \n (or \r\n). A lone \r anywhere else
+  // is ordinary data. Treating it as a terminator splits one record into two
+  // and reports no error at all - the worst failure mode a parser has, because
+  // nothing downstream can tell it happened.
+  test('a lone carriage return is field content, not a terminator', () => {
+    expect(fieldsOf('abc\rdef,ghi\n')).toEqual([['abc\rdef', 'ghi']]);
+  });
+
+  // encoding/csv's documentation: "The Reader converts all \r\n sequences in
+  // its input to plain \n, including in multiline field values."
+  test('CRLF inside a quoted field is normalised to LF', () => {
+    expect(fieldsOf('"line1\r\nline2",x\n')).toEqual([['line1\nline2', 'x']]);
+  });
+
+  test('a trailing carriage return before EOF is dropped', () => {
+    expect(fieldsOf('a,b\r')).toEqual([['a', 'b']]);
+  });
 });
 
 describe('writeRow and parseCsv are inverses', () => {
@@ -121,6 +146,10 @@ describe('writeRow and parseCsv are inverses', () => {
     [' leading space', ''],
     ['\\.', 'unicode é \u{1F331}'],
     ['\tleading tab', 'a\tb'],
+    // A lone \r survives a round trip: the writer quotes it, the reader
+    // keeps it. A \r\n would NOT - the reader normalises it to \n - but
+    // that is Go's behaviour too, so it is correct rather than a defect.
+    ['has\rcarriage return', 'plain'],
   ])('round-trips %j, %j', (a, b) => {
     expect(parseCsv(writeRow([a, b]))[0]?.fields).toEqual([a, b]);
   });
