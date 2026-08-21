@@ -9,7 +9,10 @@ import { WriteScreen } from './Write';
 
 jest.mock('../platform/confirm');
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const { confirm } = require('../platform/confirm') as { confirm: jest.Mock };
+const { confirm, notify } = require('../platform/confirm') as {
+  confirm: jest.Mock;
+  notify: jest.Mock;
+};
 
 const NOW = new Date('2026-08-19T12:00:00Z');
 const now = () => NOW;
@@ -32,6 +35,8 @@ beforeEach(async () => {
   onSaved.mockReset();
   confirm.mockReset();
   confirm.mockResolvedValue(true);
+  notify.mockReset();
+  notify.mockResolvedValue(undefined);
 });
 afterEach(async () => {
   await store.close();
@@ -45,13 +50,6 @@ test('opens on today', async () => {
 
 test('saving writes the entry', async () => {
   await renderWrite(store);
-  // fireEvent.changeText is awaited here (the task-10-brief's listing omits
-  // this await): RNTL's fireEvent wraps every dispatch in its own act()
-  // scope, and leaving that scope's promise un-awaited while a second,
-  // overlapping act() scope opens right after (the press below) corrupts
-  // React's global act bookkeeping for the rest of the test file - every
-  // later render() silently stops committing. Confirmed with a Write.tsx
-  // independent repro; see task-10-report.md.
   await fireEvent.changeText(screen.getByTestId('write-body'), 'a good day');
   await act(async () => {
     fireEvent.press(screen.getByTestId('write-save'));
@@ -154,6 +152,42 @@ test('the back arrow steps a day and loads that entry', async () => {
 test('the forward arrow is disabled on today', async () => {
   await renderWrite(store);
   expect(screen.getByTestId('write-next').props.accessibilityState.disabled).toBe(true);
+});
+
+// "Nothing crashes on a user's phone" is a stated invariant with, until now, no
+// test at all: a store that throws must surface through notify, not propagate.
+test('a store failure surfaces as a notification rather than a crash', async () => {
+  // A plain `{ ...store, put: ... }` spread would silently drop SqliteStore's
+  // prototype methods (put, get, ...) - a class instance's own enumerable
+  // properties are just its constructor-assigned fields, not its methods -
+  // so every delegated call is bound explicitly instead.
+  const broken: Store = {
+    get: store.get.bind(store),
+    put: async () => {
+      throw new Error('disk is full');
+    },
+    putAll: store.putAll.bind(store),
+    delete: store.delete.bind(store),
+    onThisDay: store.onThisDay.bind(store),
+    dates: store.dates.bind(store),
+    all: store.all.bind(store),
+    close: store.close.bind(store),
+  };
+  render(
+    <JournalProvider store={broken} now={now} onSaved={onSaved}>
+      <WriteScreen />
+    </JournalProvider>,
+  );
+  await waitFor(() => expect(screen.getByTestId('write-header')).toBeTruthy());
+
+  await fireEvent.changeText(screen.getByTestId('write-body'), 'a good day');
+  await act(async () => {
+    fireEvent.press(screen.getByTestId('write-save'));
+  });
+
+  expect(notify).toHaveBeenCalledWith('Could not save that entry', 'disk is full');
+  // The soft gate must NOT fire on a failed save.
+  expect(onSaved).not.toHaveBeenCalled();
 });
 
 test('stepping away with unsaved edits asks first', async () => {
