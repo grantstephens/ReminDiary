@@ -154,6 +154,13 @@ export function toRfc3339Utc(t: Date): string {
  */
 export function parseRfc3339(s: string): string | null {
   if (!RFC3339_RE.test(s)) return null;
+  // V8 rejects an out-of-range month, hour, minute or second, but silently
+  // rolls an out-of-range DAY forward: new Date("2026-02-30T00:00:00Z") is
+  // 2 March, not Invalid Date. Go's time.Parse returns "day out of range".
+  // Validating the date half through tryParseDate closes that gap, so a
+  // hand-mangled CSV row is rejected here exactly as the Go importer rejects
+  // it rather than being silently "corrected".
+  if (tryParseDate(s.slice(0, 10)) === null) return null;
   const t = new Date(s);
   if (Number.isNaN(t.getTime())) return null;
   return toRfc3339Utc(t);

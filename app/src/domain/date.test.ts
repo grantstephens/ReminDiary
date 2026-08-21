@@ -56,25 +56,32 @@ describe('addDays', () => {
   });
 
   // The whole reason arithmetic is done in UTC. This suite runs pinned to
-  // Pacific/Auckland (see jest.config.js), so these are the days New Zealand's
+  // America/Los_Angeles (see jest.config.js), so these are the days US Pacific
   // clocks actually move in 2026 - in local time one of them drops a day and
   // the other repeats one.
   test('is immune to a local DST transition', () => {
-    expect(addDays(parseDate('2026-04-04'), 1)).toBe('2026-04-05'); // clocks back
-    expect(addDays(parseDate('2026-04-05'), 1)).toBe('2026-04-06');
-    expect(addDays(parseDate('2026-09-26'), 1)).toBe('2026-09-27'); // clocks forward
-    expect(addDays(parseDate('2026-09-27'), 1)).toBe('2026-09-28');
+    expect(addDays(parseDate('2026-03-07'), 1)).toBe('2026-03-08'); // clocks forward
+    expect(addDays(parseDate('2026-03-08'), 1)).toBe('2026-03-09');
+    expect(addDays(parseDate('2026-10-31'), 1)).toBe('2026-11-01'); // clocks back
+    expect(addDays(parseDate('2026-11-01'), 1)).toBe('2026-11-02');
   });
 });
 
 describe('today', () => {
+  // A guard, not a feature test: if the host lacks IANA tzdata the TZ pin is
+  // silently ignored and every zone-sensitive test below passes for the wrong
+  // reason. This fails loudly instead.
+  test('the timezone pin is in effect', () => {
+    expect(new Date('2026-08-20T02:00:00Z').getDate()).toBe(19);
+  });
+
   // today() reads LOCAL calendar fields, unlike every other date operation:
-  // the diary should agree with the wall clock in the room. This suite is
-  // pinned to Pacific/Auckland (UTC+12), so an instant late in the UTC day has
-  // already rolled over locally - which is exactly what must be observed.
+  // the diary should agree with the wall clock in the room. Pinned to
+  // America/Los_Angeles, an instant just past midnight UTC is still the
+  // previous evening locally - which is exactly what must be observed.
   test('is the local calendar date, not the UTC one', () => {
-    expect(today(new Date('2026-08-19T23:30:00Z'))).toBe('2026-08-20');
-    expect(today(new Date('2026-08-19T11:30:00Z'))).toBe('2026-08-19');
+    expect(today(new Date('2026-08-20T02:00:00Z'))).toBe('2026-08-19');
+    expect(today(new Date('2026-08-19T18:00:00Z'))).toBe('2026-08-19');
   });
 
   test('zero-pads', () => {
@@ -104,8 +111,11 @@ describe('display', () => {
     expect(displayDayMonth(d)).toBe(dayMonth);
   });
 
-  // Pinned to Pacific/Auckland, twelve hours off UTC: if display read local
-  // fields instead of UTC ones, these would come back a day out.
+  // Pinned to America/Los_Angeles, a NEGATIVE offset. Dates anchor at midnight
+  // UTC, which is the previous afternoon in Los Angeles, so an implementation
+  // that read local fields would render each of these exactly one day early -
+  // 'Tue 18 Aug 2026' and '31 December'. Under a positive-offset zone both
+  // would still pass while broken, which is why the zone's sign is chosen.
   test('does not depend on the local zone', () => {
     expect(displayDate(parseDate('2026-08-19'))).toBe('Wed 19 Aug 2026');
     expect(displayDayMonth(parseDate('2026-01-01'))).toBe('1 January');
@@ -135,6 +145,19 @@ describe('RFC3339', () => {
     'yesterday',
     '',
   ])('rejects %s', (raw) => {
+    expect(parseRfc3339(raw)).toBeNull();
+  });
+
+  // Well-shaped but impossible. V8 rolls a day overflow forward instead of
+  // failing, so without an explicit check these would come back "corrected"
+  // rather than null - and Go's time.Parse rejects every one of them.
+  test.each([
+    '2026-02-30T00:00:00Z',
+    '2023-02-29T12:00:00Z',
+    '2026-04-31T00:00:00Z',
+    '2026-13-01T00:00:00Z',
+    '2026-00-10T00:00:00Z',
+  ])('rejects the impossible date %s', (raw) => {
     expect(parseRfc3339(raw)).toBeNull();
   });
 });
