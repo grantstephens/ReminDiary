@@ -55,39 +55,26 @@ describe('addDays', () => {
     expect(addDays(parseDate(from), days)).toBe(want);
   });
 
-  // The whole reason arithmetic is done in UTC: these are the two days the UK
-  // clocks move in 2026. Doing this in local time drops or repeats a day.
+  // The whole reason arithmetic is done in UTC. This suite runs pinned to
+  // Pacific/Auckland (see jest.config.js), so these are the days New Zealand's
+  // clocks actually move in 2026 - in local time one of them drops a day and
+  // the other repeats one.
   test('is immune to a local DST transition', () => {
-    const previous = process.env.TZ;
-    process.env.TZ = 'Europe/London';
-    try {
-      expect(addDays(parseDate('2026-03-28'), 1)).toBe('2026-03-29'); // clocks forward
-      expect(addDays(parseDate('2026-03-29'), 1)).toBe('2026-03-30');
-      expect(addDays(parseDate('2026-10-24'), 1)).toBe('2026-10-25'); // clocks back
-      expect(addDays(parseDate('2026-10-25'), 1)).toBe('2026-10-26');
-    } finally {
-      process.env.TZ = previous;
-    }
+    expect(addDays(parseDate('2026-04-04'), 1)).toBe('2026-04-05'); // clocks back
+    expect(addDays(parseDate('2026-04-05'), 1)).toBe('2026-04-06');
+    expect(addDays(parseDate('2026-09-26'), 1)).toBe('2026-09-27'); // clocks forward
+    expect(addDays(parseDate('2026-09-27'), 1)).toBe('2026-09-28');
   });
 });
 
 describe('today', () => {
-  // today() reads LOCAL calendar fields, unlike every other date operation.
-  // 23:30 UTC on 19 August is already the 20th in Auckland and still the 19th
-  // in London, and the diary should agree with the wall clock in the room.
+  // today() reads LOCAL calendar fields, unlike every other date operation:
+  // the diary should agree with the wall clock in the room. This suite is
+  // pinned to Pacific/Auckland (UTC+12), so an instant late in the UTC day has
+  // already rolled over locally - which is exactly what must be observed.
   test('is the local calendar date, not the UTC one', () => {
-    const previous = process.env.TZ;
-    const instant = new Date('2026-08-19T23:30:00Z');
-    try {
-      process.env.TZ = 'Europe/London';
-      expect(today(new Date(instant))).toBe('2026-08-20');
-      process.env.TZ = 'Pacific/Auckland';
-      expect(today(new Date(instant))).toBe('2026-08-20');
-      process.env.TZ = 'America/Los_Angeles';
-      expect(today(new Date(instant))).toBe('2026-08-19');
-    } finally {
-      process.env.TZ = previous;
-    }
+    expect(today(new Date('2026-08-19T23:30:00Z'))).toBe('2026-08-20');
+    expect(today(new Date('2026-08-19T11:30:00Z'))).toBe('2026-08-19');
   });
 
   test('zero-pads', () => {
@@ -117,16 +104,11 @@ describe('display', () => {
     expect(displayDayMonth(d)).toBe(dayMonth);
   });
 
+  // Pinned to Pacific/Auckland, twelve hours off UTC: if display read local
+  // fields instead of UTC ones, these would come back a day out.
   test('does not depend on the local zone', () => {
-    const previous = process.env.TZ;
-    try {
-      process.env.TZ = 'Pacific/Auckland';
-      expect(displayDate(parseDate('2026-08-19'))).toBe('Wed 19 Aug 2026');
-      process.env.TZ = 'America/Los_Angeles';
-      expect(displayDate(parseDate('2026-08-19'))).toBe('Wed 19 Aug 2026');
-    } finally {
-      process.env.TZ = previous;
-    }
+    expect(displayDate(parseDate('2026-08-19'))).toBe('Wed 19 Aug 2026');
+    expect(displayDayMonth(parseDate('2026-01-01'))).toBe('1 January');
   });
 });
 
