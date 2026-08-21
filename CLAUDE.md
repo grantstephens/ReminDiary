@@ -12,6 +12,23 @@ The design spec and implementation plan live under `docs/` in the local working 
 and are both still current, but they are deliberately not published to the remote — see
 `.gitignore`. The one amendment the plan made to the spec was `Store.PutAll`.
 
+## The React Native implementation (`app/`)
+
+`app/` holds a fresh implementation on Expo, targeting Android and Web, built to fix Fyne's
+Android text editor at the root: React Native's `TextInput` wraps the real native widget
+instead of relaying keystrokes to a dummy `EditText`. The Go app in this repository root
+still ships and still works; the two coexist until parity, and diary data crosses between
+them as CSV, which both write byte-identically.
+
+Its own commands live in `app/README.md` and its own gate is `cd app && npm run check` —
+`make check` covers the Go code only. Its design spec and implementation plan sit in
+`app/design/`, which is gitignored exactly like `docs/`: this repository is public and
+design documents are not published. They exist on disk; do not commit them, and do not
+write documentation that links to them as though a reader could follow it.
+
+The toolchain is pinned in `mise.toml` at the root — `mise install` after cloning. Install
+tools through `mise`, not through a system package manager or a global `npm -g`.
+
 ## Commands
 
 ```bash

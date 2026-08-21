@@ -13,6 +13,9 @@ way even if you stop using this.
 > ([`AndroidManifest.xml.in`](cmd/remindiary/AndroidManifest.xml.in)) that declares none.
 > Check any release for yourself with `aapt dump permissions <apk>` — the list is empty.
 
+A React Native implementation is in progress under `app/`, targeting Android and the web.
+It is not the shipping app yet — the Go build in this repository root still is.
+
 [![Licence: GPL v3](https://img.shields.io/badge/Licence-GPLv3-blue.svg)](LICENSE)
 [![Release](https://img.shields.io/github/v/release/grantstephens/ReminDiary?include_prereleases)](https://github.com/grantstephens/ReminDiary/releases)
 
