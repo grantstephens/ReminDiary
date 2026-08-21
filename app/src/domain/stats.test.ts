@@ -71,7 +71,29 @@ describe('computeStats', () => {
     // Storage cannot produce duplicates, but computeStats is pure and must not
     // rely on that to stay correct.
     const dates = [d('2026-08-18'), d('2026-08-18'), d('2026-08-19')];
-    expect(computeStats(dates, d('2026-08-19')).current).toBe(2);
+    const stats = computeStats(dates, d('2026-08-19'));
+    expect(stats.current).toBe(2);
+    // total counts the INPUT, not the deduplicated set. That mirrors the Go
+    // original, whose only caller is Store.dates() where duplicates cannot
+    // occur; the deduplication exists solely so the streak walk cannot be
+    // fooled. "Correcting" total to count unique dates is exactly the
+    // plausible-looking regression this assertion exists to catch.
+    expect(stats.total).toBe(3);
+  });
+
+  test('finds the longest run when it is the most recent one', () => {
+    // The mirror of the test above: a longest run at the END of the array,
+    // after a shorter one, so a boundary error in either direction shows up.
+    const dates = [
+      d('2026-01-01'), d('2026-01-02'),
+      d('2026-08-16'), d('2026-08-17'), d('2026-08-18'), d('2026-08-19'),
+    ];
+    expect(computeStats(dates, d('2026-08-19'))).toEqual({
+      current: 4,
+      longest: 4,
+      total: 6,
+      since: '2026-01-01',
+    });
   });
 
   test('since is the earliest date, not the first one passed in', () => {

@@ -7,6 +7,13 @@ import type { Entry } from './entry';
  * Every method rejects with an Error rather than throwing synchronously or
  * crashing, because a failure on a user's phone must become an alert, not a
  * dead app.
+ *
+ * Implementations are driven from the UI thread and need not be safe against
+ * concurrent callers — but note that "single-threaded" does not mean
+ * "uninterleaved" in JavaScript the way it does for the Go original's single
+ * goroutine: two overlapping awaits on the same store genuinely interleave.
+ * Implementations must therefore keep each method's own writes atomic
+ * (see putAll) rather than assuming no other call is in flight.
  */
 export interface Store {
   /** get returns the entry for date, or null. A missing entry is not an error. */
@@ -22,7 +29,10 @@ export interface Store {
    */
   putAll(entries: Entry[]): Promise<void>;
 
-  /** delete removes the entry for date. Deleting a blank date is not an error. */
+  /**
+   * delete removes the entry for date. Deleting a date that has no entry is
+   * not an error.
+   */
   delete(date: JournalDate): Promise<void>;
 
   /**
