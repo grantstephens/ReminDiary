@@ -70,6 +70,14 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      # apksigner and aapt (used below in "Verify artefacts") live in the
+      # Android SDK's build-tools, which is not on PATH by default - same
+      # step legacy-fyne-release.yml has for the same reason.
+      - name: Configure Android toolchain
+        run: |
+          BUILD_TOOLS=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          echo "$BUILD_TOOLS" >> "$GITHUB_PATH"
+
       # Same packed-integer scheme as legacy-fyne-release.yml, reproduced
       # rather than shared so this workflow has no dependency on that one.
       # Reusing the identical formula matters here specifically because the
