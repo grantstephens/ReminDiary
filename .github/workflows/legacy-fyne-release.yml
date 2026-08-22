@@ -1,5 +1,7 @@
-# Builds a signed APK and AAB on tag push and attaches them to a GitHub Release,
-# which is what Obtainium watches.
+# Builds a signed APK and AAB for the LEGACY Fyne app on tag push and attaches
+# them to a GitHub Release, which is what Obtainium watches. The React Native
+# app at the repository root does not have a release pipeline yet — this one
+# covers only legacy-fyne/ until it does.
 #
 # Required repository secrets:
 #   ANDROID_KEYSTORE_BASE64  - base64 of your .keystore file
@@ -7,8 +9,9 @@
 #   ANDROID_KEY_ALIAS
 #   ANDROID_KEY_PASSWORD
 #
-# See README.md "Signing setup" for how to generate the keystore and set these.
-name: Release
+# See legacy-fyne/README.md "Signing setup" for how to generate the keystore
+# and set these.
+name: Legacy Fyne Release
 
 on:
   push:
@@ -30,11 +33,14 @@ jobs:
   check:
     name: Tests
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: legacy-fyne
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-go@v6
         with:
-          go-version-file: go.mod
+          go-version-file: legacy-fyne/go.mod
           cache: true
       - run: make check
 
@@ -42,6 +48,9 @@ jobs:
     name: Signed APK and AAB
     needs: check
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: legacy-fyne
     steps:
       - uses: actions/checkout@v5
         with:
@@ -49,7 +58,7 @@ jobs:
 
       - uses: actions/setup-go@v6
         with:
-          go-version-file: go.mod
+          go-version-file: legacy-fyne/go.mod
           cache: true
 
       # The runner ships an Android SDK and NDK already; fyne only needs to be
@@ -125,7 +134,7 @@ jobs:
           KS_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
         run: |
           if [ -z "$KS_B64" ]; then
-            echo "::error::ANDROID_KEYSTORE_BASE64 is not set. See README.md 'Signing setup'."
+            echo "::error::ANDROID_KEYSTORE_BASE64 is not set. See legacy-fyne/README.md 'Signing setup'."
             exit 1
           fi
           printf '%s' "$KS_B64" | base64 -d > "$RUNNER_TEMP/keystore.jks"
@@ -195,13 +204,16 @@ jobs:
 
           aapt dump badging "$APK" | grep -E '^package|native-code'
 
+      # This step is an action, not a `run:` shell step, so the job-level
+      # working-directory default does not apply to it — the paths need the
+      # legacy-fyne/ prefix explicitly.
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.tag }}
           files: |
-            remindiary-${{ steps.version.outputs.tag }}.apk
-            remindiary-${{ steps.version.outputs.tag }}.aab
+            legacy-fyne/remindiary-${{ steps.version.outputs.tag }}.apk
+            legacy-fyne/remindiary-${{ steps.version.outputs.tag }}.aab
           generate_release_notes: true
           # Any tag carrying a semver pre-release suffix (-beta.1, -rc.2, -alpha)
           # is published as a pre-release. Obtainium can then be told whether to
