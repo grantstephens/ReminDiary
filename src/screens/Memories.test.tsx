@@ -46,7 +46,7 @@ test('shows previous years newest first', async () => {
     entry('2030-08-19', 'last year'),
     entry('2025-08-19', 'six years ago'),
   ]);
-  renderMemories();
+  await renderMemories();
   await waitFor(() => expect(screen.getByText('last year')).toBeTruthy());
 
   const headings = screen.getAllByTestId(/memories-heading-/);
@@ -60,7 +60,7 @@ test('shows previous years newest first', async () => {
 // The current year is what you just wrote. This screen is about the others.
 test('excludes the current year', async () => {
   await store.putAll([entry('2031-08-19', 'today'), entry('2030-08-19', 'last year')]);
-  renderMemories();
+  await renderMemories();
   await waitFor(() => expect(screen.getByText('last year')).toBeTruthy());
   expect(screen.queryByText('today')).toBeNull();
 });
@@ -69,13 +69,13 @@ test('excludes the current year', async () => {
 // broke, and a screen this thin on tests is the wrong place to economise.
 test('ignores the same month on a different day', async () => {
   await store.putAll([entry('2030-08-18', 'wrong day')]);
-  renderMemories();
+  await renderMemories();
   await waitFor(() => expect(screen.getByTestId('memories-empty')).toBeTruthy());
 });
 
 test('ignores the same day in a different month', async () => {
   await store.putAll([entry('2030-09-19', 'wrong month')]);
-  renderMemories();
+  await renderMemories();
   await waitFor(() => expect(screen.getByTestId('memories-empty')).toBeTruthy());
 });
 
@@ -84,7 +84,7 @@ test('ignores the same day in a different month', async () => {
 test('a leap day matches only a leap day', async () => {
   const leapNow = () => new Date('2032-02-29T12:00:00Z');
   await store.putAll([entry('2028-02-29', 'leap'), entry('2029-02-28', 'not leap')]);
-  render(
+  await render(
     <JournalProvider store={store} now={leapNow}>
       <MemoriesScreen />
     </JournalProvider>,
@@ -111,7 +111,7 @@ test('a store failure surfaces as a notification rather than a crash', async () 
     all: store.all.bind(store),
     close: store.close.bind(store),
   };
-  render(
+  await render(
     <JournalProvider store={broken} now={now}>
       <MemoriesScreen />
     </JournalProvider>,
@@ -122,7 +122,7 @@ test('a store failure surfaces as a notification rather than a crash', async () 
 });
 
 test('the empty state names the day', async () => {
-  renderMemories();
+  await renderMemories();
   await waitFor(() => {
     expect(screen.getByTestId('memories-empty').props.children).toBe(
       'Nothing from previous years yet. Come back next 19 August.',
@@ -139,7 +139,7 @@ function OpenDateProbe({ onReady }: { onReady: (value: JournalValue['openDate'])
 test('tapping an entry asks to open it for editing', async () => {
   await store.putAll([entry('2030-08-19', 'last year')]);
   let latest: JournalValue['openDate'] = null;
-  render(
+  await render(
     <JournalProvider store={store} now={now}>
       <MemoriesScreen />
       <OpenDateProbe onReady={(value) => { latest = value; }} />

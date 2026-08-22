@@ -47,7 +47,7 @@ function RevisionProbe() {
 // screen queries that follow it. renderSettings waits for a stable element
 // before returning, the same convention Write.test.tsx's renderWrite uses.
 const renderSettings = async (target: Store = store) => {
-  const view = render(
+  const view = await render(
     <JournalProvider store={target} now={now}>
       <SettingsScreen />
       <RevisionProbe />

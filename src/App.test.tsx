@@ -14,7 +14,7 @@ const { openStore } = require('./storage/openStore') as {
 
 test('shows the three tabs once the store opens', async () => {
   openStore.mockResolvedValue(await SqliteStore.open(openNodeSqlite(':memory:')));
-  render(<App />);
+  await render(<App />);
   // Queried by testID, not by text. A text query for 'Write' is ambiguous the
   // moment a real screen renders that word anywhere in its tree - and the Write
   // screen is exactly where that is likely. testIDs on the tab buttons are
@@ -28,7 +28,7 @@ test('shows the three tabs once the store opens', async () => {
 // screen and not a redbox.
 test('renders an error screen when the store will not open', async () => {
   openStore.mockRejectedValue(new Error('disk is on fire'));
-  render(<App />);
+  await render(<App />);
   await waitFor(() => expect(screen.getByText(/could not open your journal/i)).toBeTruthy());
   expect(screen.getByText(/disk is on fire/)).toBeTruthy();
 });
@@ -48,7 +48,7 @@ test('tapping a memory entry switches to Write with that date loaded', async () 
   });
   openStore.mockResolvedValue(store);
 
-  render(<App />);
+  await render(<App />);
   await waitFor(() => expect(screen.getByTestId('tab-Write')).toBeTruthy());
 
   await act(async () => {

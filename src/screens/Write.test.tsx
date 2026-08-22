@@ -25,7 +25,7 @@ const now = () => NOW;
 const onSaved = jest.fn();
 
 async function renderWrite(store: Store) {
-  const view = render(
+  const view = await render(
     <JournalProvider store={store} now={now} onSaved={onSaved}>
       <WriteScreen />
     </JournalProvider>,
@@ -238,7 +238,7 @@ test('a store failure surfaces as a notification rather than a crash', async () 
     all: store.all.bind(store),
     close: store.close.bind(store),
   };
-  render(
+  await render(
     <JournalProvider store={broken} now={now} onSaved={onSaved}>
       <WriteScreen />
     </JournalProvider>,
@@ -297,7 +297,7 @@ function GuardProbe({ onReady }: { onReady: (g: React.MutableRefObject<UnsavedGu
 // switch, distinct from the step()/save() paths above.
 test('the guard silently saves unsaved edits, then re-arms on further typing', async () => {
   let guardRef: React.MutableRefObject<UnsavedGuard | null> | null = null;
-  render(
+  await render(
     <JournalProvider store={store} now={now} onSaved={onSaved}>
       <WriteScreen />
       <GuardProbe onReady={(g) => { guardRef = g; }} />
@@ -342,7 +342,7 @@ test('the guard reverts a cleared entry instead of deleting it', async () => {
     updated: '2020-01-01T00:00:00Z',
   });
   let guardRef: React.MutableRefObject<UnsavedGuard | null> | null = null;
-  render(
+  await render(
     <JournalProvider store={store} now={now} onSaved={onSaved}>
       <WriteScreen />
       <GuardProbe onReady={(g) => { guardRef = g; }} />
@@ -377,7 +377,7 @@ test('a failing silent save blocks navigation, notifies, and keeps the guard arm
     close: store.close.bind(store),
   };
   let guardRef: React.MutableRefObject<UnsavedGuard | null> | null = null;
-  render(
+  await render(
     <JournalProvider store={broken} now={now} onSaved={onSaved}>
       <WriteScreen />
       <GuardProbe onReady={(g) => { guardRef = g; }} />
@@ -444,7 +444,7 @@ test('opening a memory loads that date, silently saving unsaved edits to today f
     updated: '2020-01-01T00:00:00Z',
   });
   let openWrite: ((date: JournalDate) => void) | null = null;
-  render(
+  await render(
     <JournalProvider store={store} now={now} onSaved={onSaved}>
       <WriteScreen />
       <OpenWriteProbe onReady={(fn) => { openWrite = fn; }} />
