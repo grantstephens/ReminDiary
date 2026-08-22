@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: ['main']
+  pull_request:
+
+jobs:
+  check:
+    name: React Native — tsc + jest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          # Matches the pin in mise.toml. A drifted Node version here has
+          # already caused real test failures on this project — keep both in
+          # sync if you bump one.
+          node-version: '24.16.0'
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+
+  legacy-check:
+    name: Legacy Fyne — gofmt + vet + test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: legacy-fyne
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: legacy-fyne/go.mod
+          cache: true
+      - run: make check

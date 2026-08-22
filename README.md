@@ -1,20 +1,48 @@
 # ReminDiary
 
-A daily journal for Android that shows you your own past. Write today's entry, save it,
-and the app surfaces what you wrote on this same date in previous years.
+A daily journal for Android and the web that shows you your own past. Write today's
+entry, save it, and the app surfaces what you wrote on this same date in previous years.
 
-Everything lives on your phone. No account, no sync, no telemetry: ReminDiary contains no
-networking code whatsoever. Your entries are yours, and CSV export means they stay that
-way even if you stop using this.
-
-> **On permissions:** ReminDiary declares **no Android permissions at all**. Fyne's
-> default manifest template adds `INTERNET` and both external-storage permissions to
-> every app built with it, so the project ships its own manifest
-> ([`AndroidManifest.xml.in`](cmd/remindiary/AndroidManifest.xml.in)) that declares none.
-> Check any release for yourself with `aapt dump permissions <apk>` — the list is empty.
+Everything lives on your device. No account, no sync, no telemetry: ReminDiary contains
+no networking code whatsoever. Your entries are yours, and CSV export means they stay
+that way even if you stop using this.
 
 [![Licence: GPL v3](https://img.shields.io/badge/Licence-GPLv3-blue.svg)](LICENSE)
 [![Release](https://img.shields.io/github/v/release/grantstephens/ReminDiary?include_prereleases)](https://github.com/grantstephens/ReminDiary/releases)
+
+## What's here
+
+This repository holds two implementations of the same app.
+
+- **This directory (repository root)** — a [React Native](https://reactnative.dev)
+  (Expo) implementation, targeting Android and the web. This is the primary
+  implementation going forward.
+- **[`legacy-fyne/`](legacy-fyne/)** — the original Go + Fyne implementation. It is
+  kept working, and its release pipeline stays live, until this app reaches parity and
+  the real diary data has been migrated across.
+
+### Why React Native
+
+Fyne's Android text editor is broken at the architecture level, not something fixable
+from application code: it keeps a permanently-invisible dummy `EditText` around purely to
+catch keystrokes for the IME, and draws the visible text, cursor and selection itself.
+That is why the on-screen keyboard sizes oddly and copy/paste never feels native — the
+widget you type into is not the one the OS keyboard thinks it is talking to. This is a
+confirmed, long-standing category of upstream Fyne-on-Android bugs, not something this
+app's own code can work around. React Native's `TextInput` wraps the real native widget —
+`EditText` on Android, a real `<textarea>` on the web. Writing is this app's entire reason
+to exist, so a second-class editor was worth a rewrite.
+
+### Current status
+
+The migration path is verified: exporting a real 1960-entry diary from the legacy app,
+importing it here, and exporting again produces a byte-identical file (SHA-256 match).
+CSV format, statistics, and every user-visible copy string match the legacy app exactly.
+
+**Not yet verified:** on-device text editing (the entire reason this rewrite exists), the
+browser build, and a signed release build. **The APKs currently published under
+[Releases](https://github.com/grantstephens/ReminDiary/releases) are still built from
+`legacy-fyne/`** — there is no React Native release yet.
 
 ## Installing
 
@@ -38,17 +66,18 @@ Download the APK from the [Releases page](https://github.com/grantstephens/Remin
 and open it. Android will warn you about installing from an unknown source, because the
 app is signed with the project's own key rather than distributed through Play.
 
-Requires Android 5.0 (API 21) or later. The APK carries all four ABIs, so it works on any
-phone or emulator.
+> **On permissions:** every release of this app, on either implementation, declares
+> **no Android permissions at all**. Check any release for yourself with
+> `aapt dump permissions <apk>` — the list is empty.
 
 > **Upgrading from a locally built APK?** Android identifies an app by its signing
 > certificate, so a release build will not install over one you built yourself. Export
-> your entries from the **Data** tab first, uninstall, then install the release —
+> your entries from the Data screen first, uninstall, then install the release —
 > uninstalling deletes the database.
 
 ## Using it
 
-Four tabs:
+Four screens:
 
 - **Write** — today's entry, one per calendar date. Saving reveals your Memories.
 - **Memories** — what you wrote on this date in previous years, newest first, labelled
@@ -62,9 +91,10 @@ entries. It is a journal, not an organiser.
 
 ### Your data
 
-The database is `journal.db` in Android's app-private storage, which means **uninstalling
-the app deletes your entries**. Export from the **Data** tab before you uninstall, switch
-phones, or do anything else drastic.
+On Android the database lives in the app's private storage, so **uninstalling the app
+deletes your entries**. Export from the Data screen before you uninstall, switch devices,
+or do anything else drastic. On the web build, data lives in the browser's IndexedDB and
+is subject to the same rule — clearing site data deletes it.
 
 Import merges a CSV back in, skipping dates you already have unless you tick *Overwrite
 existing entries*. Imports are all-or-nothing: the whole file is parsed and validated
@@ -78,133 +108,50 @@ date,body,created,updated
 ```
 
 `created` and `updated` are optional on import. Dates are `YYYY-MM-DD`; timestamps are
-RFC 3339 in UTC.
+RFC 3339 in UTC. This format is shared byte-for-byte with `legacy-fyne/`, so migrating
+between the two implementations is a plain export/import — see below.
+
+### Moving your diary from the legacy app
+
+Export from `legacy-fyne/`'s Data tab, then import here (or the reverse). Both speak the
+same CSV by design; no bespoke migration tool is needed.
 
 ## Development
 
-Go 1.26, [Fyne](https://fyne.io) and [bbolt](https://github.com/etcd-io/bbolt). Those two
-are the only dependencies, and adding a third is a decision rather than a convenience.
+Toolchain is pinned in [`mise.toml`](mise.toml) — run `mise install` after cloning, and
+run project commands through it (`mise exec -- ...`), not through a system package
+manager or a global `npm -g`. In a non-interactive shell, a bare `node`/`npm` resolves
+mise's *global* install rather than this repository's pin, which has previously caused
+real, silent test failures on this project.
 
 ```bash
 make            # list every target
-make check      # gofmt + go vet + go test — the gate before any commit
-make run        # desktop window
-make apk        # Android package
+make check      # tsc --noEmit && jest — the gate before any commit
+make start      # Expo dev server; scan the QR code with Expo Go
+make web        # browser build, the no-device iteration story
+make android    # Expo dev server, opening on a connected device
 ```
 
-Android is the shipping target; the desktop build exists so that iterating does not need
-a device.
+Android and the web are both shipping targets.
 
-### Headless machines
+### Layout
 
-`TAGS` defaults to `ci`, which selects Fyne's software driver, so every target works on a
-server with no display stack. `make deps` reports which GL/X libraries are missing for a
-real desktop window, and `make run-headless` exercises the whole startup path without
-opening one. To build against the real GLFW driver instead, clear the tag:
-
-```bash
-make check TAGS=
+```
+src/domain/    pure TypeScript: dates, entries, the Store contract, stats
+src/storage/   SqliteStore (Android) and IndexedDbStore (web), one shared contract
+src/csv/       import and export, byte-compatible with legacy-fyne/
+src/screens/   Write, Memories, Stats, Data
+src/platform/  the two things that differ per target: files and dialogs
 ```
 
-The test suite is headless either way — the tag is only needed to compile
-`cmd/remindiary`, the one package that pulls in a driver.
+Dependencies point inward. `src/domain` imports nothing — no React, no Expo — which is
+why it is tested in a plain Node environment.
 
-### Building an APK
+### The legacy Fyne app
 
-Needs the [Fyne CLI](https://github.com/fyne-io/tools) plus `ANDROID_HOME` and
-`ANDROID_NDK_HOME`:
-
-```bash
-go install fyne.io/tools/cmd/fyne@latest
-make apk                        # all four ABIs, debug, ~122MB
-make apk RELEASE=1 ABI=arm64    # one ABI, ~25MB — what a real phone needs
-make install                    # build and push to a connected device via adb
-```
-
-Dropping the unused ABIs is what shrinks the package; `RELEASE=1` alone only saves about
-19%, since it just strips DWARF.
-
-`make apk` is for development. It targets SDK 29, so Android shows a "built for an older
-version of Android" warning on install — Fyne only emits SDK 35 on the `fyne release`
-path. Published releases go through `make release` and do not have that problem.
-
-Both targets generate `cmd/remindiary/AndroidManifest.xml` from
-`AndroidManifest.xml.in`, substituting `VERSION_CODE` and `VERSION_NAME`. Fyne uses a
-hand-written manifest verbatim when one is present, which is how the permissions get
-dropped — but it also means Fyne's `--app-version`/`--app-build` flags are ignored, hence
-the substitution.
-
-## Releasing
-
-Pushing a tag builds, signs and publishes automatically — see
-[`.github/workflows/release.yml`](.github/workflows/release.yml):
-
-```bash
-git tag v1.0.0 && git push origin v1.0.0
-```
-
-The workflow runs the test suite, builds a signed all-ABI bundle with `fyne release`,
-flattens it into a universal APK, asserts the result targets SDK 35 and declares zero
-permissions, and attaches both the `.apk` and the `.aab` to a GitHub Release. Tags
-carrying a semver pre-release suffix (`v1.0.0-beta.1`) are published as pre-releases.
-
-`versionName` is the tag without its leading `v`. `versionCode` is packed from the same
-tag as `major*10000000 + minor*100000 + patch*1000 + stage*100 + n`, where the stage
-ranks `alpha=1, beta=2, rc=3, final=9`:
-
-| Tag | versionCode |
-|---|---|
-| `v1.0.0-alpha.1` | 10000101 |
-| `v1.0.0-beta.1` | 10000201 |
-| `v1.0.0-rc.1` | 10000301 |
-| `v1.0.0` | 10000999 |
-| `v1.0.1-beta.1` | 10001201 |
-
-Android refuses to upgrade an installed app unless `versionCode` increases, and ranking
-the stage is what stops `-beta.1` and `-rc.1` colliding. Deriving it from the tag rather
-than the CI run number also means rebuilding a tag reproduces the same `versionCode`.
-
-### Signing setup
-
-Android identifies an app by its signing certificate. Every release must use the *same*
-key, or existing users cannot upgrade and would have to uninstall, losing their journal.
-Generate it once, back it up somewhere you trust, and never commit it:
-
-```bash
-keytool -genkeypair -v -keystore remindiary.keystore -storetype PKCS12 \
-        -alias remindiary -keyalg RSA -keysize 4096 -validity 10000
-```
-
-Then set four repository secrets:
-
-| Secret | Value |
-|---|---|
-| `ANDROID_KEYSTORE_BASE64` | base64 of the `.keystore` file |
-| `ANDROID_KEYSTORE_PASSWORD` | keystore password |
-| `ANDROID_KEY_ALIAS` | key alias (`remindiary` above) |
-| `ANDROID_KEY_PASSWORD` | key password |
-
-```bash
-base64 -w0 remindiary.keystore | gh secret set ANDROID_KEYSTORE_BASE64
-gh secret set ANDROID_KEYSTORE_PASSWORD
-gh secret set ANDROID_KEY_ALIAS
-gh secret set ANDROID_KEY_PASSWORD
-```
-
-### Building a release locally
-
-`make release` produces the same signed `.aab` that CI does, and is also what you would
-upload to Google Play. It needs `zip` and
-[`bundletool`](https://developer.android.com/tools/bundletool) on PATH:
-
-```bash
-make release KEYSTORE=~/keys/remindiary.keystore KEY_NAME=remindiary
-```
-
-Passwords are prompted for on stdin rather than passed as variables, so they stay out of
-your shell history — `KEYSTORE_PASS`/`KEY_PASS` exist only for CI, which has no stdin to
-prompt on. Do not set `ABI` for a release bundle: it should carry every ABI and let Play
-(or the universal APK) cover any device.
+See [`legacy-fyne/README.md`](legacy-fyne/README.md) for its own build, test and release
+instructions — they are unchanged from when it was the primary app. `make legacy-check`,
+`make legacy-run` and `make legacy-apk` from the repository root delegate into it.
 
 ## Licence
 
