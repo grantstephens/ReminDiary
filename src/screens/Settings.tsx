@@ -1,12 +1,33 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 
 import { useJournal } from '../JournalContext';
-import { today } from '../domain/date';
+import { displayDate, today } from '../domain/date';
+import { computeStats, type Stats } from '../domain/stats';
 import { exportCsv, exportFileName } from '../csv/export';
 import { formatRowError, importCsv, type ImportResult } from '../csv/import';
 import { confirm, notify } from '../platform/confirm';
 import { pickCsv, saveCsv } from '../platform/files';
+
+const EMPTY: Stats = { current: 0, longest: 0, total: 0, since: null };
+
+/** days renders a day count with the correct plural. */
+export function days(n: number): string {
+  return n === 1 ? '1 day' : `${n} days`;
+}
+
+/** statsLines renders statistics as display lines. */
+export function statsLines(stats: Stats): string[] {
+  if (stats.total === 0 || stats.since === null) {
+    return ['No entries yet. Write something today.'];
+  }
+  return [
+    `Current streak: ${days(stats.current)}`,
+    `Longest streak: ${days(stats.longest)}`,
+    `Total entries: ${stats.total}`,
+    `Writing since: ${displayDate(stats.since)}`,
+  ];
+}
 
 /**
  * How many failed rows the result message quotes, so a thoroughly broken file
@@ -26,11 +47,31 @@ export function formatImportResult(result: ImportResult): string {
   return lines.join('\n');
 }
 
-/** Data is the import and export screen. */
-export function DataScreen() {
-  const { store, now, bump } = useJournal();
+/**
+ * Settings combines the statistics and import/export screens into one -
+ * numbers at the top, data management below - rather than splitting a
+ * handful of low-traffic, non-writing concerns across two tabs.
+ */
+export function SettingsScreen() {
+  const { store, now, revision, bump } = useJournal();
+  const [stats, setStats] = useState<Stats>(EMPTY);
   const [overwrite, setOverwrite] = useState(false);
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    store
+      .dates()
+      .then((dates) => {
+        if (!cancelled) setStats(computeStats(dates, today(now())));
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) void notify('Could not read your statistics', (err as Error).message);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [store, now, revision]);
 
   const runImport = async () => {
     // Overwrite is the one setting that can destroy data, so it is confirmed
@@ -78,6 +119,14 @@ export function DataScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.screen}>
+      {statsLines(stats).map((line, i) => (
+        <Text key={line} testID={`stats-line-${i}`} style={styles.statsLine}>
+          {line}
+        </Text>
+      ))}
+
+      <View style={styles.divider} />
+
       <Text style={styles.explain}>
         Import merges a CSV into your journal. Dates you already have are skipped unless you
         tick overwrite. Export writes every entry to a CSV file.
@@ -111,6 +160,8 @@ export function DataScreen() {
 
 const styles = StyleSheet.create({
   screen: { padding: 16 },
+  statsLine: { fontSize: 16, marginBottom: 10 },
+  divider: { height: 1, backgroundColor: '#00000022', marginVertical: 20 },
   explain: { fontSize: 15, marginBottom: 20 },
   row: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
   rowLabel: { marginLeft: 10, fontSize: 15 },

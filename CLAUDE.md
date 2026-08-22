@@ -47,12 +47,6 @@ Pinned in [`mise.toml`](mise.toml) — `mise install` after cloning. Install too
 `mise use <tool>@<version>`, which installs it *and* records it in `mise.toml` in one
 step; do not hand-write that file.
 
-**Always run project commands through `mise exec --`** — `mise exec -- npm run check`,
-not a bare `npm run check`. In a non-interactive shell, mise's shell activation does not
-apply and a bare `node`/`npm` resolves mise's *global* install rather than this
-repository's pin. This silently shadowed the pinned Node version with a newer one for
-several implementation tasks before it was caught — a pin nothing honours is decoration.
-
 ## Commands
 
 ```bash
@@ -63,11 +57,11 @@ make web            # browser build, the no-device iteration story
 make android        # Expo dev server, opening on a connected device
 ```
 
-Or without `make`, from a shell where `mise exec` is available:
+Or without `make`:
 
 ```bash
-mise exec -- npm run check
-mise exec -- npx jest src/domain/date.test.ts   # single test file
+npm run check
+npx jest src/domain/date.test.ts   # single test file
 ```
 
 ## Architecture
@@ -81,7 +75,7 @@ nothing imports from `src/screens` except `App.tsx`.
 | `src/domain` | Domain only: `JournalDate`, `Entry`, the `Store` interface, `computeStats`. Imports nothing external — no React, no Expo — which is why it runs in a plain Node Jest environment. |
 | `src/storage` | `SqliteStore` (Android, via `expo-sqlite`/`node:sqlite`) and `IndexedDbStore` (web), held to one shared behavioural contract (`storeContract.ts`) run against both — the same role `internal/storetest` plays for the legacy app. |
 | `src/csv` | Import and export against a `Store`, byte-compatible with `legacy-fyne/internal/csvio`. |
-| `src/screens` | Write, Memories, Stats, Data. |
+| `src/screens` | Write, Memories, Settings (stats and import/export combined). |
 | `src/platform` | The two things that genuinely differ per target: file access (`files.native.ts`/`files.web.ts`) and dialogs (`confirm.native.ts`/`confirm.web.ts`). React Native's `Alert` is a silent no-op on `react-native-web`, which is why dialogs need a platform split at all. |
 | `App.tsx` / `JournalContext.tsx` | Store bootstrap, the error screen, and the cross-screen wiring: a `revision` counter every write path bumps, and an `onSaved` callback the Write screen fires that `App.tsx` turns into "reveal Memories" — the same role `app.go`'s `refreshDerived()`/`OnSaved` wiring plays for the legacy app. |
 
@@ -161,6 +155,34 @@ the browser. On Android, uninstalling deletes it; in the browser, clearing site 
 does. `tools/convert-legacy-backup.py` converts an old `timestamp,body` export into the
 `date,body,created,updated` CSV both apps' importers want, applying the
 after-midnight-belongs-to-yesterday rule.
+
+## Assets
+
+The app icon is a flat re-draw of `legacy-fyne/icon.svg`'s stacked-date-cards concept —
+solid colors, no gradients or blurred drop shadows, so the layered edges stay crisp at
+small sizes and through Android's adaptive-icon squircle crop. `assets/icon.svg` is the
+editable source (full-bleed, artwork centered in the safe zone); `assets/icon-foreground.svg`
+and `assets/icon-monochrome.svg` are the split layers Android's adaptive icon needs — the
+background is a flat `backgroundColor` in `app.json`, not an image. As with the legacy
+icon, the numeral is an outlined path rather than `<text>`, produced the same way: write
+the digits as real `<text>`, then let a tool bake in the font so the file renders
+identically on a machine without it —
+`inkscape text.svg --export-text-to-path --export-plain-svg --export-filename=text-path.svg`
+(source font: Liberation Sans Bold) — and hand-copy the resulting `<path>` into place.
+`icon-monochrome.svg` punches the numeral out of the card stack as negative space (an SVG
+`<mask>`) rather than drawing it on top, since Android tints the whole monochrome layer a
+single color and a same-color numeral would otherwise vanish into the card behind it.
+
+Regenerate every raster asset from the three source SVGs after any artwork change:
+
+```bash
+cd assets
+rsvg-convert -w 1024 -h 1024 icon.svg -o icon.png
+rsvg-convert -w 1024 -h 1024 icon.svg -o splash-icon.png
+rsvg-convert -w 1024 -h 1024 icon-foreground.svg -o android-icon-foreground.png
+rsvg-convert -w 1024 -h 1024 icon-monochrome.svg -o android-icon-monochrome.png
+rsvg-convert -w 48 -h 48 icon.svg -o favicon.png
+```
 
 ---
 

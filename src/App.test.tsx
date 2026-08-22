@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import React from 'react';
 
 import App, { handleTabPress } from './App';
@@ -12,7 +12,7 @@ const { openStore } = require('./storage/openStore') as {
   openStore: jest.Mock;
 };
 
-test('shows the four tabs once the store opens', async () => {
+test('shows the three tabs once the store opens', async () => {
   openStore.mockResolvedValue(await SqliteStore.open(openNodeSqlite(':memory:')));
   render(<App />);
   // Queried by testID, not by text. A text query for 'Write' is ambiguous the
@@ -21,8 +21,7 @@ test('shows the four tabs once the store opens', async () => {
   // stable regardless of what any screen draws.
   await waitFor(() => expect(screen.getByTestId('tab-Write')).toBeTruthy());
   expect(screen.getByTestId('tab-Memories')).toBeTruthy();
-  expect(screen.getByTestId('tab-Stats')).toBeTruthy();
-  expect(screen.getByTestId('tab-Data')).toBeTruthy();
+  expect(screen.getByTestId('tab-Settings')).toBeTruthy();
 });
 
 // A failed database open must render something a human can read, not a blank
@@ -32,6 +31,36 @@ test('renders an error screen when the store will not open', async () => {
   render(<App />);
   await waitFor(() => expect(screen.getByText(/could not open your journal/i)).toBeTruthy());
   expect(screen.getByText(/disk is on fire/)).toBeTruthy();
+});
+
+// The end-to-end path Memories' tap-to-edit relies on: openWrite() switches
+// tabs via the real navigator, not just a context value change.
+test('tapping a memory entry switches to Write with that date loaded', async () => {
+  const store = await SqliteStore.open(openNodeSqlite(':memory:'));
+  const now = new Date();
+  const lastYear = new Date(Date.UTC(now.getUTCFullYear() - 1, now.getUTCMonth(), now.getUTCDate()));
+  const iso = lastYear.toISOString().slice(0, 10);
+  await store.put({
+    date: iso,
+    body: 'from last year',
+    created: `${iso}T12:00:00Z`,
+    updated: `${iso}T12:00:00Z`,
+  });
+  openStore.mockResolvedValue(store);
+
+  render(<App />);
+  await waitFor(() => expect(screen.getByTestId('tab-Write')).toBeTruthy());
+
+  await act(async () => {
+    fireEvent.press(screen.getByTestId('tab-Memories'));
+  });
+  await waitFor(() => expect(screen.getByText('from last year')).toBeTruthy());
+
+  await act(async () => {
+    fireEvent.press(screen.getByTestId(`memories-item-${lastYear.getUTCFullYear()}`));
+  });
+
+  await waitFor(() => expect(screen.getByTestId('write-body').props.value).toBe('from last year'));
 });
 
 // handleTabPress is unreachable inline (it lives inside screenListeners,

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useMemo, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
 
 import type { JournalDate } from './domain/date';
 import type { Store } from './domain/store';
@@ -34,6 +34,15 @@ export interface JournalValue {
    * should not have to mount one.
    */
   onSaved: (date: JournalDate) => void;
+  /**
+   * openDate is set by openWrite - Memories tapping an entry to edit it - and
+   * read by the Write screen. An event carried in state rather than a plain
+   * callback prop, the same reason revision is: a fresh object every call so
+   * a later effect fires even if the same date is requested twice in a row.
+   */
+  openDate: { date: JournalDate } | null;
+  /** openWrite asks to load `date` into the Write screen and switch to its tab. */
+  openWrite: (date: JournalDate) => void;
 }
 
 const JournalContext = createContext<JournalValue | null>(null);
@@ -42,15 +51,26 @@ export function JournalProvider({
   store,
   now,
   onSaved = () => {},
+  onOpenWrite = () => {},
   children,
 }: {
   store: Store;
   now: () => Date;
   onSaved?: (date: JournalDate) => void;
+  onOpenWrite?: () => void;
   children: React.ReactNode;
 }) {
   const [revision, setRevision] = useState(0);
+  const [openDate, setOpenDate] = useState<JournalValue['openDate']>(null);
   const guard = useRef<UnsavedGuard | null>(null);
+
+  const openWrite = useCallback(
+    (date: JournalDate) => {
+      setOpenDate({ date });
+      onOpenWrite();
+    },
+    [onOpenWrite],
+  );
 
   const value = useMemo<JournalValue>(
     () => ({
@@ -60,8 +80,10 @@ export function JournalProvider({
       bump: () => setRevision((r) => r + 1),
       guard,
       onSaved,
+      openDate,
+      openWrite,
     }),
-    [store, now, revision, onSaved],
+    [store, now, revision, onSaved, openDate, openWrite],
   );
 
   return <JournalContext.Provider value={value}>{children}</JournalContext.Provider>;

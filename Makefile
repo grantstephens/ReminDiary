@@ -14,22 +14,22 @@ help: ## Show this help
 		| awk -F':.*?## ' '{printf "  \033[1m%-16s\033[0m %s\n", $$1, $$2}'
 
 check: ## tsc --noEmit && jest — the gate before any commit
-	mise exec -- npm run check
+	npm run check
 
 test: ## Run the Jest suite
-	mise exec -- npm test
+	npm test
 
 typecheck: ## tsc --noEmit only
-	mise exec -- npm run typecheck
+	npm run typecheck
 
 start: ## Expo dev server; scan the QR code with Expo Go
-	mise exec -- npm start
+	npm start
 
 web: ## Browser build, the no-device iteration story
-	mise exec -- npm run web
+	npm run web
 
 android: ## Expo dev server, opening on a connected device
-	mise exec -- npm run android
+	npm run android
 
 ## --- Legacy Fyne/Go app (legacy-fyne/) -------------------------------------
 

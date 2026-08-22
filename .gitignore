@@ -45,6 +45,9 @@ legacy-fyne/remindiary
 # Generated from AndroidManifest.xml.in at build time.
 legacy-fyne/cmd/remindiary/AndroidManifest.xml
 
+# Brainstorming visual companion scratch mockups
+.superpowers/
+
 # Go
 *.test
 *.out

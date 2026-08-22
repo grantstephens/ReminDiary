@@ -1,7 +1,7 @@
-import { render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import React from 'react';
 
-import { JournalProvider } from '../JournalContext';
+import { JournalProvider, useJournal, type JournalValue } from '../JournalContext';
 import type { Entry } from '../domain/entry';
 import type { Store } from '../domain/store';
 import { SqliteStore } from '../storage/SqliteStore';
@@ -128,6 +128,29 @@ test('the empty state names the day', async () => {
       'Nothing from previous years yet. Come back next 19 August.',
     );
   });
+});
+
+function OpenDateProbe({ onReady }: { onReady: (value: JournalValue['openDate']) => void }) {
+  const { openDate } = useJournal();
+  onReady(openDate);
+  return null;
+}
+
+test('tapping an entry asks to open it for editing', async () => {
+  await store.putAll([entry('2030-08-19', 'last year')]);
+  let latest: JournalValue['openDate'] = null;
+  render(
+    <JournalProvider store={store} now={now}>
+      <MemoriesScreen />
+      <OpenDateProbe onReady={(value) => { latest = value; }} />
+    </JournalProvider>,
+  );
+  await waitFor(() => expect(screen.getByText('last year')).toBeTruthy());
+
+  await act(async () => {
+    fireEvent.press(screen.getByTestId('memories-item-2030'));
+  });
+  expect(latest!.date).toBe('2030-08-19');
 });
 
 test('pluralises the year label', () => {

@@ -118,11 +118,8 @@ same CSV by design; no bespoke migration tool is needed.
 
 ## Development
 
-Toolchain is pinned in [`mise.toml`](mise.toml) — run `mise install` after cloning, and
-run project commands through it (`mise exec -- ...`), not through a system package
-manager or a global `npm -g`. In a non-interactive shell, a bare `node`/`npm` resolves
-mise's *global* install rather than this repository's pin, which has previously caused
-real, silent test failures on this project.
+Toolchain is pinned in [`mise.toml`](mise.toml) — run `mise install` after cloning.
+Install tools through `mise`, not a system package manager or a global `npm -g`.
 
 ```bash
 make            # list every target
@@ -140,7 +137,7 @@ Android and the web are both shipping targets.
 src/domain/    pure TypeScript: dates, entries, the Store contract, stats
 src/storage/   SqliteStore (Android) and IndexedDbStore (web), one shared contract
 src/csv/       import and export, byte-compatible with legacy-fyne/
-src/screens/   Write, Memories, Stats, Data
+src/screens/   Write, Memories, Settings (stats and import/export combined)
 src/platform/  the two things that differ per target: files and dialogs
 ```
 

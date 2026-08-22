@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { useJournal } from '../JournalContext';
 import {
@@ -32,7 +32,7 @@ export function emptyMemoriesText(day: JournalDate): string {
  * anniversaries means a dozen entries in one scrollable list.
  */
 export function MemoriesScreen() {
-  const { store, now, revision } = useJournal();
+  const { store, now, revision, openWrite } = useJournal();
   const [shown, setShown] = useState<Entry[]>([]);
   const [day, setDay] = useState<JournalDate>(() => today(now()));
 
@@ -67,12 +67,17 @@ export function MemoriesScreen() {
         </Text>
       ) : (
         shown.map((e) => (
-          <View key={e.date} style={styles.item}>
+          <Pressable
+            key={e.date}
+            testID={`memories-item-${yearOf(e.date)}`}
+            style={styles.item}
+            onPress={() => openWrite(e.date)}
+          >
             <Text testID={`memories-heading-${yearOf(e.date)}`} style={styles.heading}>
               {`${yearOf(e.date)} — ${yearsAgoLabel(yearOf(day) - yearOf(e.date))}`}
             </Text>
             <Text style={styles.body}>{e.body}</Text>
-          </View>
+          </Pressable>
         ))
       )}
     </ScrollView>

@@ -1,21 +1,41 @@
 import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
 import { JournalProvider, useJournal } from './JournalContext';
 import type { UnsavedGuard } from './JournalContext';
 import type { Store } from './domain/store';
 import { openStore } from './storage/openStore';
-import { DataScreen } from './screens/Data';
 import { MemoriesScreen } from './screens/Memories';
-import { StatsScreen } from './screens/Stats';
+import { SettingsScreen } from './screens/Settings';
 import { WriteScreen } from './screens/Write';
 
-export type TabName = 'Write' | 'Memories' | 'Stats' | 'Data';
+export type TabName = 'Write' | 'Memories' | 'Settings';
 
 const Tab = createBottomTabNavigator();
+
+const TAB_ICONS: Record<TabName, keyof typeof Ionicons.glyphMap> = {
+  Write: 'create-outline',
+  Memories: 'book-outline',
+  Settings: 'settings-outline',
+};
+
+/**
+ * Screens render with headerShown: false, so nothing else pads the status bar
+ * / camera-cutout area away from a screen's own content.
+ */
+function withTopInset<P extends object>(Screen: React.ComponentType<P>) {
+  return function ScreenWithTopInset(props: P) {
+    return (
+      <SafeAreaView edges={['top']} style={styles.safeArea}>
+        <Screen {...props} />
+      </SafeAreaView>
+    );
+  };
+}
 
 /**
  * A ref rather than useNavigation, because the provider that carries onSaved is
@@ -65,7 +85,7 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      <JournalProvider store={store} now={now} onSaved={revealMemories}>
+      <JournalProvider store={store} now={now} onSaved={revealMemories} onOpenWrite={openWrite}>
         <NavigationContainer ref={navigationRef}>
           <Tabs />
         </NavigationContainer>
@@ -80,6 +100,15 @@ export default function App() {
  */
 function revealMemories() {
   if (navigationRef.isReady()) navigationRef.navigate('Memories');
+}
+
+/**
+ * openWrite is the reverse trip: Memories tapping an entry switches back to
+ * Write, which separately picks up the requested date from JournalContext's
+ * openDate.
+ */
+function openWrite() {
+  if (navigationRef.isReady()) navigationRef.navigate('Write');
 }
 
 /** The subset of a navigation object handleTabPress needs. */
@@ -128,7 +157,15 @@ function Tabs() {
     <Tab.Navigator
       // Bottom placement keeps the tabs thumb-reachable on a phone, and
       // unobtrusive in a browser.
-      screenOptions={{ headerShown: false }}
+      screenOptions={({ route }) => ({
+        headerShown: false,
+        tabBarIcon: ({ color, size }) => (
+          <Ionicons name={TAB_ICONS[route.name as TabName]} color={color} size={size} />
+        ),
+        // Otherwise the keyboard just sits on top of the tab bar rather than
+        // the bar making room for it.
+        tabBarHideOnKeyboard: true,
+      })}
       screenListeners={({ navigation, route }) => ({
         tabPress: (e: { preventDefault: () => void }) => {
           handleTabPress(guard, e, navigation, route.name);
@@ -137,23 +174,18 @@ function Tabs() {
     >
       <Tab.Screen
         name="Write"
-        component={WriteScreen}
+        component={withTopInset(WriteScreen)}
         options={{ tabBarButtonTestID: 'tab-Write' }}
       />
       <Tab.Screen
         name="Memories"
-        component={MemoriesScreen}
+        component={withTopInset(MemoriesScreen)}
         options={{ tabBarButtonTestID: 'tab-Memories' }}
       />
       <Tab.Screen
-        name="Stats"
-        component={StatsScreen}
-        options={{ tabBarButtonTestID: 'tab-Stats' }}
-      />
-      <Tab.Screen
-        name="Data"
-        component={DataScreen}
-        options={{ tabBarButtonTestID: 'tab-Data' }}
+        name="Settings"
+        component={withTopInset(SettingsScreen)}
+        options={{ tabBarButtonTestID: 'tab-Settings' }}
       />
     </Tab.Navigator>
   );
@@ -172,6 +204,7 @@ function ErrorScreen({ error }: { error: Error }) {
 }
 
 const styles = StyleSheet.create({
+  safeArea: { flex: 1 },
   centre: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
   errorTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 12, textAlign: 'center' },
   errorBody: { textAlign: 'center', marginBottom: 8 },
