@@ -257,7 +257,15 @@ jobs:
           echo "targetSdkVersion=$TARGET"
           [ "$TARGET" -ge 35 ] || { echo "::error::targetSdkVersion $TARGET < 35"; exit 1; }
 
-          PERMS=$(aapt dump permissions "$APK" | grep -c 'uses-permission' || true)
+          # DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION is excluded deliberately:
+          # it is a self-signature permission AndroidX Core auto-injects to
+          # emulate Android 13's RECEIVER_NOT_EXPORTED flag on older API
+          # levels (ContextCompat.registerReceiver()) - scoped to this app's
+          # own package, unusable by any other app, invisible in Play
+          # Store's permission listing. Legacy Fyne never hits this because
+          # it doesn't pull in AndroidX Core; any RN/Expo app does.
+          PERMS=$(aapt dump permissions "$APK" | grep 'uses-permission' \
+            | grep -vc 'DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION' || true)
           echo "declared permissions: $PERMS"
           [ "$PERMS" -eq 0 ] || {
             aapt dump permissions "$APK"
