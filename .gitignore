@@ -2,39 +2,49 @@
 *.csv
 *.db
 
-# Build output
-*.apk
-*.aab
-/remindiary
-
 # Signing keys. Losing these means never being able to update the app on
 # Play again; committing them to a public repo means anyone can forge it.
 *.keystore
 *.jks
+*.p8
 *.p12
+*.mobileprovision
+
+# Design docs and plans — kept locally, not published. This repository is
+# public and design documents are not.
+docs/
+design/
+
+# --- React Native app (repository root) ------------------------------------
+node_modules/
+.expo/
+dist/
+web-build/
+/android/
+/ios/
+*.tsbuildinfo
+expo-env.d.ts
+.kotlin/
+*.orig.*
+.metro-health-check*
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+.DS_Store
+*.pem
+.env*.local
+
+# --- Legacy Fyne app (legacy-fyne/) -----------------------------------------
+*.apk
+*.aab
+legacy-fyne/remindiary
 
 # fyne rewrites FyneApp.toml on every build; the Makefile snapshots it here.
 .FyneApp.toml.bak
 
 # Generated from AndroidManifest.xml.in at build time.
-cmd/remindiary/AndroidManifest.xml
+legacy-fyne/cmd/remindiary/AndroidManifest.xml
 
 # Go
 *.test
 *.out
-
-# Design docs and plans — kept locally, not published.
-docs/
-
-# React Native app (app/) build output and dependencies.
-app/node_modules/
-app/.expo/
-app/dist/
-app/web-build/
-app/android/
-app/ios/
-app/*.tsbuildinfo
-
-# Design docs and plans for the React Native app, same rule as docs/ above:
-# kept locally, not published.
-app/design/

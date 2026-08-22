@@ -1,8 +1,8 @@
 # Toolchain for this repository. Run `mise install` after cloning.
 [tools]
-# The Go app in the repository root.
-go = "1.26.4"
-# The React Native app in app/. Expo SDK 57 wants Node 20 or newer.
+# The React Native app (repository root). Expo SDK 57 wants Node 20 or newer.
 node = "24.16.0"
-# Android release builds; see Task 14.
+# The legacy Fyne app in legacy-fyne/.
+go = "1.26.4"
+# Android release builds.
 "npm:eas-cli" = "latest"
