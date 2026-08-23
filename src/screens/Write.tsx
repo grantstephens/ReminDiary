@@ -20,6 +20,8 @@ import {
 import { plannedSave, trimBody } from '../domain/save';
 import { confirm, notify } from '../platform/confirm';
 import { onAppHidden } from '../platform/lifecycle';
+import { useTheme } from '../ThemeContext';
+import type { Theme } from '../theme';
 
 /**
  * Write is the home screen: a date header with day-stepping arrows, the editor,
@@ -31,6 +33,8 @@ import { onAppHidden } from '../platform/lifecycle';
  */
 export function WriteScreen() {
   const { store, now, revision, bump, guard, onSaved, openDate } = useJournal();
+  const { theme } = useTheme();
+  const styles = createStyles(theme);
 
   const [date, setDate] = useState<JournalDate>(() => today(now()));
   const [loaded, setLoaded] = useState('');
@@ -272,6 +276,7 @@ export function WriteScreen() {
         onFocus={startEditing}
         onBlur={stopEditing}
         placeholder="What happened today?"
+        placeholderTextColor={theme.textMuted}
         multiline
         textAlignVertical="top"
       />
@@ -289,16 +294,23 @@ export function WriteScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, padding: 12 },
-  header: { flexDirection: 'row', alignItems: 'center' },
-  headerText: { flex: 1, alignItems: 'center' },
-  date: { fontSize: 18, fontWeight: 'bold' },
-  badge: { fontStyle: 'italic', minHeight: 18 },
-  arrow: { padding: 12 },
-  arrowDisabled: { opacity: 0.3 },
-  arrowText: { fontSize: 20 },
-  body: { flex: 1, marginVertical: 12, fontSize: 16 },
-  save: { padding: 14, alignItems: 'center', borderRadius: 6 },
-  saveText: { fontSize: 16, fontWeight: 'bold' },
-});
+function createStyles(theme: Theme) {
+  return StyleSheet.create({
+    screen: { flex: 1, padding: 12, backgroundColor: theme.background },
+    header: { flexDirection: 'row', alignItems: 'center' },
+    headerText: { flex: 1, alignItems: 'center' },
+    date: { fontSize: 18, fontWeight: 'bold', color: theme.text },
+    badge: { fontStyle: 'italic', minHeight: 18, color: theme.textMuted },
+    arrow: { padding: 12 },
+    arrowDisabled: { opacity: 0.3 },
+    arrowText: { fontSize: 20, color: theme.text },
+    body: { flex: 1, marginVertical: 12, fontSize: 16, color: theme.text },
+    save: {
+      padding: 14,
+      alignItems: 'center',
+      borderRadius: 6,
+      backgroundColor: theme.surface,
+    },
+    saveText: { fontSize: 16, fontWeight: 'bold', color: theme.accent },
+  });
+}

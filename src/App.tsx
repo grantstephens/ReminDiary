@@ -1,6 +1,11 @@
-import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
+import {
+  NavigationContainer,
+  createNavigationContainerRef,
+  type Theme as NavigationTheme,
+} from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
+import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
@@ -12,6 +17,29 @@ import { openStore } from './storage/openStore';
 import { MemoriesScreen } from './screens/Memories';
 import { SettingsScreen } from './screens/Settings';
 import { WriteScreen } from './screens/Write';
+import { ThemeProvider, useTheme } from './ThemeContext';
+import type { Theme } from './theme';
+
+/** navigationTheme adapts our tokens to react-navigation's own Theme shape. */
+function navigationTheme(theme: Theme): NavigationTheme {
+  return {
+    dark: theme.dark,
+    colors: {
+      primary: theme.accent,
+      background: theme.background,
+      card: theme.surface,
+      text: theme.text,
+      border: theme.border,
+      notification: theme.accent,
+    },
+    fonts: {
+      regular: { fontFamily: 'System', fontWeight: '400' },
+      medium: { fontFamily: 'System', fontWeight: '500' },
+      bold: { fontFamily: 'System', fontWeight: '700' },
+      heavy: { fontFamily: 'System', fontWeight: '900' },
+    },
+  };
+}
 
 export type TabName = 'Write' | 'Memories' | 'Settings';
 
@@ -29,8 +57,12 @@ const TAB_ICONS: Record<TabName, keyof typeof Ionicons.glyphMap> = {
  */
 function withTopInset<P extends object>(Screen: React.ComponentType<P>) {
   return function ScreenWithTopInset(props: P) {
+    const { theme } = useTheme();
     return (
-      <SafeAreaView edges={['top']} style={styles.safeArea}>
+      <SafeAreaView
+        edges={['top']}
+        style={[styles.safeArea, { backgroundColor: theme.background }]}
+      >
         <Screen {...props} />
       </SafeAreaView>
     );
@@ -44,6 +76,19 @@ function withTopInset<P extends object>(Screen: React.ComponentType<P>) {
 const navigationRef = createNavigationContainerRef<Record<TabName, undefined>>();
 
 export default function App() {
+  return (
+    <ThemeProvider>
+      <AppInner />
+    </ThemeProvider>
+  );
+}
+
+/**
+ * Split from App so it can call useTheme() - the provider it needs has to be
+ * an ancestor, not itself.
+ */
+function AppInner() {
+  const { theme } = useTheme();
   const [store, setStore] = useState<Store | null>(null);
   const [failure, setFailure] = useState<Error | null>(null);
 
@@ -72,21 +117,32 @@ export default function App() {
   // provider rather than this function.
   const now = useMemo(() => () => new Date(), []);
 
+  const statusBarStyle = theme.dark ? 'light' : 'dark';
+
   if (failure !== null) {
-    return <ErrorScreen error={failure} />;
+    return (
+      <>
+        <StatusBar style={statusBarStyle} />
+        <ErrorScreen error={failure} theme={theme} />
+      </>
+    );
   }
   if (store === null) {
     return (
-      <View style={styles.centre}>
-        <ActivityIndicator />
-      </View>
+      <>
+        <StatusBar style={statusBarStyle} />
+        <View style={[styles.centre, { backgroundColor: theme.background }]}>
+          <ActivityIndicator color={theme.accent} />
+        </View>
+      </>
     );
   }
 
   return (
     <SafeAreaProvider>
+      <StatusBar style={statusBarStyle} />
       <JournalProvider store={store} now={now} onSaved={revealMemories} onOpenWrite={openWrite}>
-        <NavigationContainer ref={navigationRef}>
+        <NavigationContainer ref={navigationRef} theme={navigationTheme(theme)}>
           <Tabs />
         </NavigationContainer>
       </JournalProvider>
@@ -191,12 +247,14 @@ function Tabs() {
   );
 }
 
-function ErrorScreen({ error }: { error: Error }) {
+function ErrorScreen({ error, theme }: { error: Error; theme: Theme }) {
   return (
-    <View style={styles.centre}>
-      <Text style={styles.errorTitle}>Could not open your journal</Text>
-      <Text style={styles.errorBody}>{error.message}</Text>
-      <Text style={styles.errorBody}>
+    <View style={[styles.centre, { backgroundColor: theme.background }]}>
+      <Text style={[styles.errorTitle, { color: theme.text }]}>
+        Could not open your journal
+      </Text>
+      <Text style={[styles.errorBody, { color: theme.text }]}>{error.message}</Text>
+      <Text style={[styles.errorBody, { color: theme.textMuted }]}>
         Your entries are still on this device. Restarting the app is usually enough.
       </Text>
     </View>

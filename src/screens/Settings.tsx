@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 
 import { useJournal } from '../JournalContext';
 import { displayDate, today } from '../domain/date';
@@ -8,6 +8,14 @@ import { exportCsv, exportFileName } from '../csv/export';
 import { formatRowError, importCsv, type ImportResult } from '../csv/import';
 import { confirm, notify } from '../platform/confirm';
 import { pickCsv, saveCsv } from '../platform/files';
+import { useTheme } from '../ThemeContext';
+import type { Theme, ThemeMode } from '../theme';
+
+const APPEARANCE_OPTIONS: { mode: ThemeMode; label: string }[] = [
+  { mode: 'system', label: 'System' },
+  { mode: 'light', label: 'Light' },
+  { mode: 'dark', label: 'Dark' },
+];
 
 const EMPTY: Stats = { current: 0, longest: 0, total: 0, since: null };
 
@@ -54,6 +62,8 @@ export function formatImportResult(result: ImportResult): string {
  */
 export function SettingsScreen() {
   const { store, now, revision, bump } = useJournal();
+  const { theme, mode, setMode } = useTheme();
+  const styles = createStyles(theme);
   const [stats, setStats] = useState<Stats>(EMPTY);
   const [overwrite, setOverwrite] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -118,7 +128,7 @@ export function SettingsScreen() {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.screen}>
+    <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
       {statsLines(stats).map((line, i) => (
         <Text key={line} testID={`stats-line-${i}`} style={styles.statsLine}>
           {line}
@@ -154,17 +164,64 @@ export function SettingsScreen() {
       >
         <Text style={styles.buttonText}>Export CSV</Text>
       </Pressable>
+
+      {Platform.OS !== 'web' && (
+        <>
+          <View style={styles.divider} />
+          <Text style={styles.sectionLabel}>Appearance</Text>
+          <View style={styles.pillRow}>
+            {APPEARANCE_OPTIONS.map((option) => {
+              const selected = mode === option.mode;
+              return (
+                <Pressable
+                  key={option.mode}
+                  testID={`appearance-${option.mode}`}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected }}
+                  onPress={() => setMode(option.mode)}
+                  style={[styles.pill, selected && styles.pillSelected]}
+                >
+                  <Text style={[styles.pillText, selected && styles.pillTextSelected]}>
+                    {option.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </>
+      )}
     </ScrollView>
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { padding: 16 },
-  statsLine: { fontSize: 16, marginBottom: 10 },
-  divider: { height: 1, backgroundColor: '#00000022', marginVertical: 20 },
-  explain: { fontSize: 15, marginBottom: 20 },
-  row: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
-  rowLabel: { marginLeft: 10, fontSize: 15 },
-  button: { paddingVertical: 14, alignItems: 'center', borderRadius: 6, marginBottom: 12 },
-  buttonText: { fontSize: 16, fontWeight: 'bold' },
-});
+function createStyles(theme: Theme) {
+  return StyleSheet.create({
+    screen: { backgroundColor: theme.background },
+    content: { padding: 16 },
+    statsLine: { fontSize: 16, marginBottom: 10, color: theme.text },
+    divider: { height: 1, backgroundColor: theme.border, marginVertical: 20 },
+    explain: { fontSize: 15, marginBottom: 20, color: theme.text },
+    row: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
+    rowLabel: { marginLeft: 10, fontSize: 15, color: theme.text },
+    button: {
+      paddingVertical: 14,
+      alignItems: 'center',
+      borderRadius: 6,
+      marginBottom: 12,
+      backgroundColor: theme.surface,
+    },
+    buttonText: { fontSize: 16, fontWeight: 'bold', color: theme.accent },
+    sectionLabel: { fontSize: 15, fontWeight: 'bold', marginBottom: 12, color: theme.text },
+    pillRow: { flexDirection: 'row', gap: 8 },
+    pill: {
+      flex: 1,
+      paddingVertical: 10,
+      alignItems: 'center',
+      borderRadius: 6,
+      backgroundColor: theme.surface,
+    },
+    pillSelected: { backgroundColor: theme.accent },
+    pillText: { fontSize: 14, fontWeight: 'bold', color: theme.text },
+    pillTextSelected: { color: theme.background },
+  });
+}

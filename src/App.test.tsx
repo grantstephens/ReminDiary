@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-
 import React from 'react';
 
 import App, { handleTabPress } from './App';
+import { today } from './domain/date';
 import type { UnsavedGuard } from './JournalContext';
 import { SqliteStore } from './storage/SqliteStore';
 import { openNodeSqlite } from './storage/nodeSqlite';
@@ -37,9 +38,17 @@ test('renders an error screen when the store will not open', async () => {
 // tabs via the real navigator, not just a context value change.
 test('tapping a memory entry switches to Write with that date loaded', async () => {
   const store = await SqliteStore.open(openNodeSqlite(':memory:'));
-  const now = new Date();
-  const lastYear = new Date(Date.UTC(now.getUTCFullYear() - 1, now.getUTCMonth(), now.getUTCDate()));
-  const iso = lastYear.toISOString().slice(0, 10);
+  // today() reads LOCAL calendar fields (see domain/date.ts) - App itself
+  // has no injected `now`, so "today" here has to be computed the same way
+  // the app computes it. An earlier version of this test used
+  // Date.UTC(...getUTCFullYear()...), which drifts from what the app
+  // considers "today" whenever the real local and UTC calendar dates
+  // differ (this project pins tests to America/Los_Angeles specifically
+  // to expose exactly that class of bug) - it read as correct until the
+  // real clock crossed that boundary.
+  const [year, month, day] = today(new Date()).split('-');
+  const lastYearNum = Number(year) - 1;
+  const iso = `${lastYearNum}-${month}-${day}`;
   await store.put({
     date: iso,
     body: 'from last year',
@@ -57,7 +66,7 @@ test('tapping a memory entry switches to Write with that date loaded', async () 
   await waitFor(() => expect(screen.getByText('from last year')).toBeTruthy());
 
   await act(async () => {
-    fireEvent.press(screen.getByTestId(`memories-item-${lastYear.getUTCFullYear()}`));
+    fireEvent.press(screen.getByTestId(`memories-item-${lastYearNum}`));
   });
 
   await waitFor(() => expect(screen.getByTestId('write-body').props.value).toBe('from last year'));

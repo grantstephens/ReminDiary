@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-
 import React from 'react';
 
 import { JournalProvider, useJournal, type UnsavedGuard } from '../JournalContext';
+import { ThemeProvider } from '../ThemeContext';
 import type { JournalDate } from '../domain/date';
 import type { Store } from '../domain/store';
 import { SqliteStore } from '../storage/SqliteStore';
@@ -19,6 +20,10 @@ jest.mock('../platform/lifecycle');
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { onAppHidden } = require('../platform/lifecycle') as { onAppHidden: jest.Mock };
 
+jest.mock('../platform/themePreference');
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { getThemeMode } = require('../platform/themePreference') as { getThemeMode: jest.Mock };
+
 const NOW = new Date('2026-08-19T12:00:00Z');
 const now = () => NOW;
 
@@ -26,9 +31,11 @@ const onSaved = jest.fn();
 
 async function renderWrite(store: Store) {
   const view = await render(
-    <JournalProvider store={store} now={now} onSaved={onSaved}>
+    <ThemeProvider>
+      <JournalProvider store={store} now={now} onSaved={onSaved}>
       <WriteScreen />
-    </JournalProvider>,
+      </JournalProvider>
+    </ThemeProvider>,
   );
   await waitFor(() => expect(screen.getByTestId('write-header')).toBeTruthy());
   return view;
@@ -44,6 +51,8 @@ beforeEach(async () => {
   notify.mockResolvedValue(undefined);
   onAppHidden.mockReset();
   onAppHidden.mockImplementation(() => () => {});
+  getThemeMode.mockReset();
+  getThemeMode.mockResolvedValue(null);
 });
 afterEach(async () => {
   await store.close();
@@ -239,9 +248,11 @@ test('a store failure surfaces as a notification rather than a crash', async () 
     close: store.close.bind(store),
   };
   await render(
-    <JournalProvider store={broken} now={now} onSaved={onSaved}>
+    <ThemeProvider>
+      <JournalProvider store={broken} now={now} onSaved={onSaved}>
       <WriteScreen />
-    </JournalProvider>,
+      </JournalProvider>
+    </ThemeProvider>,
   );
   await waitFor(() => expect(screen.getByTestId('write-header')).toBeTruthy());
 
@@ -298,10 +309,12 @@ function GuardProbe({ onReady }: { onReady: (g: React.MutableRefObject<UnsavedGu
 test('the guard silently saves unsaved edits, then re-arms on further typing', async () => {
   let guardRef: React.MutableRefObject<UnsavedGuard | null> | null = null;
   await render(
-    <JournalProvider store={store} now={now} onSaved={onSaved}>
+    <ThemeProvider>
+      <JournalProvider store={store} now={now} onSaved={onSaved}>
       <WriteScreen />
       <GuardProbe onReady={(g) => { guardRef = g; }} />
-    </JournalProvider>,
+      </JournalProvider>
+    </ThemeProvider>,
   );
   await waitFor(() => expect(screen.getByTestId('write-header')).toBeTruthy());
 
@@ -343,10 +356,12 @@ test('the guard reverts a cleared entry instead of deleting it', async () => {
   });
   let guardRef: React.MutableRefObject<UnsavedGuard | null> | null = null;
   await render(
-    <JournalProvider store={store} now={now} onSaved={onSaved}>
+    <ThemeProvider>
+      <JournalProvider store={store} now={now} onSaved={onSaved}>
       <WriteScreen />
       <GuardProbe onReady={(g) => { guardRef = g; }} />
-    </JournalProvider>,
+      </JournalProvider>
+    </ThemeProvider>,
   );
   await waitFor(() => expect(screen.getByTestId('write-header')).toBeTruthy());
 
@@ -378,10 +393,12 @@ test('a failing silent save blocks navigation, notifies, and keeps the guard arm
   };
   let guardRef: React.MutableRefObject<UnsavedGuard | null> | null = null;
   await render(
-    <JournalProvider store={broken} now={now} onSaved={onSaved}>
+    <ThemeProvider>
+      <JournalProvider store={broken} now={now} onSaved={onSaved}>
       <WriteScreen />
       <GuardProbe onReady={(g) => { guardRef = g; }} />
-    </JournalProvider>,
+      </JournalProvider>
+    </ThemeProvider>,
   );
   await waitFor(() => expect(screen.getByTestId('write-header')).toBeTruthy());
 
@@ -445,10 +462,12 @@ test('opening a memory loads that date, silently saving unsaved edits to today f
   });
   let openWrite: ((date: JournalDate) => void) | null = null;
   await render(
-    <JournalProvider store={store} now={now} onSaved={onSaved}>
+    <ThemeProvider>
+      <JournalProvider store={store} now={now} onSaved={onSaved}>
       <WriteScreen />
       <OpenWriteProbe onReady={(fn) => { openWrite = fn; }} />
-    </JournalProvider>,
+      </JournalProvider>
+    </ThemeProvider>,
   );
   await waitFor(() => expect(screen.getByTestId('write-header')).toBeTruthy());
 

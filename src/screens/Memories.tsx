@@ -12,6 +12,8 @@ import {
 } from '../domain/date';
 import type { Entry } from '../domain/entry';
 import { notify } from '../platform/confirm';
+import { useTheme } from '../ThemeContext';
+import type { Theme } from '../theme';
 
 /** yearsAgoLabel renders the relative age of an entry. */
 export function yearsAgoLabel(years: number): string {
@@ -33,6 +35,8 @@ export function emptyMemoriesText(day: JournalDate): string {
  */
 export function MemoriesScreen() {
   const { store, now, revision, openWrite } = useJournal();
+  const { theme } = useTheme();
+  const styles = createStyles(theme);
   const [shown, setShown] = useState<Entry[]>([]);
   const [day, setDay] = useState<JournalDate>(() => today(now()));
 
@@ -60,7 +64,7 @@ export function MemoriesScreen() {
   }, [store, now, revision]);
 
   return (
-    <ScrollView contentContainerStyle={styles.list}>
+    <ScrollView style={styles.screen} contentContainerStyle={styles.list}>
       {shown.length === 0 ? (
         <Text testID="memories-empty" style={styles.empty}>
           {emptyMemoriesText(day)}
@@ -84,10 +88,18 @@ export function MemoriesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  list: { padding: 16 },
-  empty: { fontSize: 16 },
-  item: { marginBottom: 20 },
-  heading: { fontWeight: 'bold', marginBottom: 4 },
-  body: { fontSize: 16 },
-});
+function createStyles(theme: Theme) {
+  return StyleSheet.create({
+    screen: { backgroundColor: theme.background },
+    list: { padding: 16 },
+    empty: { fontSize: 16, color: theme.textMuted },
+    item: {
+      marginBottom: 16,
+      padding: 12,
+      borderRadius: 6,
+      backgroundColor: theme.surface,
+    },
+    heading: { fontWeight: 'bold', marginBottom: 4, color: theme.accent },
+    body: { fontSize: 16, color: theme.text },
+  });
+}

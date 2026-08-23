@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-
 import React from 'react';
 
 import { JournalProvider, useJournal, type JournalValue } from '../JournalContext';
+import { ThemeProvider } from '../ThemeContext';
 import type { Entry } from '../domain/entry';
 import type { Store } from '../domain/store';
 import { SqliteStore } from '../storage/SqliteStore';
@@ -9,8 +10,11 @@ import { openNodeSqlite } from '../storage/nodeSqlite';
 import { MemoriesScreen, yearsAgoLabel } from './Memories';
 
 jest.mock('../platform/confirm');
+jest.mock('../platform/themePreference');
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { notify } = require('../platform/confirm') as { notify: jest.Mock };
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { getThemeMode } = require('../platform/themePreference') as { getThemeMode: jest.Mock };
 
 // Deliberately NOT the real current year. Every other suite pins a date in the
 // present, which means a screen that read the wall clock instead of the
@@ -28,6 +32,8 @@ beforeEach(async () => {
   store = await SqliteStore.open(openNodeSqlite(':memory:'));
   notify.mockReset();
   notify.mockResolvedValue(undefined);
+  getThemeMode.mockReset();
+  getThemeMode.mockResolvedValue(null);
 });
 afterEach(async () => {
   await store.close();
@@ -35,9 +41,11 @@ afterEach(async () => {
 
 const renderMemories = () =>
   render(
-    <JournalProvider store={store} now={now}>
-      <MemoriesScreen />
-    </JournalProvider>,
+    <ThemeProvider>
+      <JournalProvider store={store} now={now}>
+        <MemoriesScreen />
+      </JournalProvider>
+    </ThemeProvider>,
   );
 
 test('shows previous years newest first', async () => {
@@ -85,9 +93,11 @@ test('a leap day matches only a leap day', async () => {
   const leapNow = () => new Date('2032-02-29T12:00:00Z');
   await store.putAll([entry('2028-02-29', 'leap'), entry('2029-02-28', 'not leap')]);
   await render(
-    <JournalProvider store={store} now={leapNow}>
-      <MemoriesScreen />
-    </JournalProvider>,
+    <ThemeProvider>
+      <JournalProvider store={store} now={leapNow}>
+        <MemoriesScreen />
+      </JournalProvider>
+    </ThemeProvider>,
   );
   await waitFor(() => expect(screen.getByText('leap')).toBeTruthy());
   expect(screen.queryByText('not leap')).toBeNull();
@@ -112,9 +122,11 @@ test('a store failure surfaces as a notification rather than a crash', async () 
     close: store.close.bind(store),
   };
   await render(
-    <JournalProvider store={broken} now={now}>
-      <MemoriesScreen />
-    </JournalProvider>,
+    <ThemeProvider>
+      <JournalProvider store={broken} now={now}>
+        <MemoriesScreen />
+      </JournalProvider>
+    </ThemeProvider>,
   );
   await waitFor(() =>
     expect(notify).toHaveBeenCalledWith('Could not read your memories', 'database is locked'),
@@ -140,10 +152,12 @@ test('tapping an entry asks to open it for editing', async () => {
   await store.putAll([entry('2030-08-19', 'last year')]);
   let latest: JournalValue['openDate'] = null;
   await render(
-    <JournalProvider store={store} now={now}>
-      <MemoriesScreen />
-      <OpenDateProbe onReady={(value) => { latest = value; }} />
-    </JournalProvider>,
+    <ThemeProvider>
+      <JournalProvider store={store} now={now}>
+        <MemoriesScreen />
+        <OpenDateProbe onReady={(value) => { latest = value; }} />
+      </JournalProvider>
+    </ThemeProvider>,
   );
   await waitFor(() => expect(screen.getByText('last year')).toBeTruthy());
 

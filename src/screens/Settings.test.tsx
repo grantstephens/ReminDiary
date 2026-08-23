@@ -1,9 +1,10 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import React from 'react';
 
-import { Text } from 'react-native';
+import { Platform, Text } from 'react-native';
 
 import { JournalProvider, useJournal } from '../JournalContext';
+import { ThemeProvider } from '../ThemeContext';
 import type { Store } from '../domain/store';
 import { SqliteStore } from '../storage/SqliteStore';
 import { openNodeSqlite } from '../storage/nodeSqlite';
@@ -11,6 +12,7 @@ import { SettingsScreen, days, formatImportResult, statsLines } from './Settings
 
 jest.mock('../platform/files');
 jest.mock('../platform/confirm');
+jest.mock('../platform/themePreference');
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { pickCsv, saveCsv } = require('../platform/files') as {
   pickCsv: jest.Mock;
@@ -21,19 +23,31 @@ const { confirm, notify } = require('../platform/confirm') as {
   confirm: jest.Mock;
   notify: jest.Mock;
 };
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { getThemeMode, setThemeMode } = require('../platform/themePreference') as {
+  getThemeMode: jest.Mock;
+  setThemeMode: jest.Mock;
+};
 
 const now = () => new Date('2026-08-19T12:00:00Z');
 const CSV = 'date,body,created,updated\n2026-08-19,hello,,\n';
 
 let store: Store;
+let originalOS: typeof Platform.OS;
 beforeEach(async () => {
   store = await SqliteStore.open(openNodeSqlite(':memory:'));
   [pickCsv, saveCsv, confirm, notify].forEach((m) => m.mockReset());
   confirm.mockResolvedValue(true);
   notify.mockResolvedValue(undefined);
+  getThemeMode.mockReset();
+  getThemeMode.mockResolvedValue(null);
+  setThemeMode.mockReset();
+  setThemeMode.mockResolvedValue(undefined);
+  originalOS = Platform.OS;
 });
 afterEach(async () => {
   await store.close();
+  Platform.OS = originalOS;
 });
 
 /** Renders the revision counter so a missing bump() is visible from a test. */
@@ -48,10 +62,12 @@ function RevisionProbe() {
 // before returning, the same convention Write.test.tsx's renderWrite uses.
 const renderSettings = async (target: Store = store) => {
   const view = await render(
-    <JournalProvider store={target} now={now}>
-      <SettingsScreen />
-      <RevisionProbe />
-    </JournalProvider>,
+    <ThemeProvider>
+      <JournalProvider store={target} now={now}>
+        <SettingsScreen />
+        <RevisionProbe />
+      </JournalProvider>
+    </ThemeProvider>,
   );
   await waitFor(() => expect(screen.getByTestId('data-import')).toBeTruthy());
   return view;
@@ -367,5 +383,47 @@ describe('data section', () => {
       expect(text.split('\n')).toHaveLength(7); // summary + 5 rows + the tail
       expect(text).toContain('…and 3 more.');
     });
+  });
+});
+
+describe('appearance section', () => {
+  test('defaults to System selected', async () => {
+    await renderSettings();
+    expect(screen.getByTestId('appearance-system').props.accessibilityState.selected).toBe(
+      true,
+    );
+    expect(screen.getByTestId('appearance-light').props.accessibilityState.selected).toBe(
+      false,
+    );
+    expect(screen.getByTestId('appearance-dark').props.accessibilityState.selected).toBe(false);
+  });
+
+  test('tapping Dark selects it and persists the choice', async () => {
+    await renderSettings();
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('appearance-dark'));
+    });
+    expect(screen.getByTestId('appearance-dark').props.accessibilityState.selected).toBe(true);
+    expect(screen.getByTestId('appearance-system').props.accessibilityState.selected).toBe(
+      false,
+    );
+    expect(setThemeMode).toHaveBeenCalledWith('dark');
+  });
+
+  test('loads a previously persisted choice', async () => {
+    getThemeMode.mockResolvedValue('light');
+    await renderSettings();
+    await waitFor(() =>
+      expect(screen.getByTestId('appearance-light').props.accessibilityState.selected).toBe(
+        true,
+      ),
+    );
+  });
+
+  // Native-only feature: on web there is no override to offer.
+  test('is not shown on web', async () => {
+    Platform.OS = 'web';
+    await renderSettings();
+    expect(screen.queryByTestId('appearance-system')).toBeNull();
   });
 });
