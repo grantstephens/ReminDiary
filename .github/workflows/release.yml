@@ -1,24 +1,13 @@
-# Builds a signed APK and AAB for the React Native app (the repository root)
-# on tag push and attaches them to the same GitHub Release legacy-fyne's own
-# release workflow publishes to - one tag, two apps' artifacts, since they
-# are still the same product during the parity/migration period documented
-# in CLAUDE.md.
+# Builds a signed APK and AAB on tag push and attaches them to a GitHub
+# Release, which is what Obtainium watches.
 #
-# The two apps share one Android applicationId (xyz.hub13.remindiary, see
-# app.json and legacy-fyne/FyneApp.toml) and are signed with the SAME
-# keystore, on purpose: Android only allows an in-place upgrade (no
-# uninstall) between two APKs with the same applicationId when they carry
-# the same signing key. Whichever app a device has installed, the other can
-# still replace it directly.
-#
-# Required repository secrets (shared with legacy-fyne-release.yml - see
-# legacy-fyne/README.md "Signing setup" for how to generate the keystore and
-# set these; do not create a second keystore for this workflow):
+# Required repository secrets (see README.md "Signing setup" for how to
+# generate the keystore and set these):
 #   ANDROID_KEYSTORE_BASE64  - base64 of your .keystore file
 #   ANDROID_KEYSTORE_PASSWORD
 #   ANDROID_KEY_ALIAS
 #   ANDROID_KEY_PASSWORD
-name: React Native Release
+name: Release
 
 on:
   push:
@@ -71,20 +60,22 @@ jobs:
           java-version: '17'
 
       # apksigner and aapt (used below in "Verify artefacts") live in the
-      # Android SDK's build-tools, which is not on PATH by default - same
-      # step legacy-fyne-release.yml has for the same reason.
+      # Android SDK's build-tools, which is not on PATH by default.
       - name: Configure Android toolchain
         run: |
           BUILD_TOOLS=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
           echo "$BUILD_TOOLS" >> "$GITHUB_PATH"
 
-      # Same packed-integer scheme as legacy-fyne-release.yml, reproduced
-      # rather than shared so this workflow has no dependency on that one.
-      # Reusing the identical formula matters here specifically because the
-      # two apps share one applicationId and signing key (see header): their
-      # versionCodes share one namespace, so whichever one a device last
-      # installed must always be able to upgrade to whichever ships next,
-      # regardless of which app built it.
+      # versionCode is a packed integer, not just the tag, because Android
+      # requires it to strictly increase between installs and a plain
+      # per-release counter would not survive a repo move or a skipped tag:
+      #
+      #     major*10000000 + minor*100000 + patch*1000 + stage*100 + n
+      #
+      # with stage ranked alpha=1, beta=2, rc=3, final=9 (and n=99 for final),
+      # so 1.0.0-alpha.1 < -beta.1 < -beta.2 < -rc.1 < 1.0.0 < 1.0.1-beta.1.
+      # Deriving it from the tag rather than the run number keeps it
+      # reproducible: rebuilding a tag yields the same versionCode.
       - name: Derive version
         id: version
         run: |
@@ -199,7 +190,7 @@ jobs:
           KS_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
         run: |
           if [ -z "$KS_B64" ]; then
-            echo "::error::ANDROID_KEYSTORE_BASE64 is not set. See legacy-fyne/README.md 'Signing setup'."
+            echo "::error::ANDROID_KEYSTORE_BASE64 is not set. See README.md 'Signing setup'."
             exit 1
           fi
           printf '%s' "$KS_B64" | base64 -d > "$RUNNER_TEMP/keystore.jks"
@@ -234,22 +225,20 @@ jobs:
             --ks-key-alias="$KEY_ALIAS" \
             --key-pass="pass:$KEY_PASS"
           unzip -p "$RUNNER_TEMP/app.apks" universal.apk \
-            > "remindiary-rn-${{ steps.version.outputs.tag }}.apk"
+            > "remindiary-${{ steps.version.outputs.tag }}.apk"
           cp android/app/build/outputs/bundle/release/app-release.aab \
-            "remindiary-rn-${{ steps.version.outputs.tag }}.aab"
+            "remindiary-${{ steps.version.outputs.tag }}.aab"
 
       # Assertions, not just output: a silent regression here ships a
       # broken, over-permissioned, or wrongly-signed build to everyone
-      # running Obtainium - or, since this app shares its applicationId and
-      # signing key with legacy-fyne (see header), one that can no longer
-      # replace it in place.
+      # running Obtainium.
       - name: Verify artefacts
         env:
           KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
         run: |
           set -euo pipefail
-          APK="remindiary-rn-${{ steps.version.outputs.tag }}.apk"
+          APK="remindiary-${{ steps.version.outputs.tag }}.apk"
 
           apksigner verify --print-certs "$APK"
 
@@ -262,8 +251,7 @@ jobs:
           # emulate Android 13's RECEIVER_NOT_EXPORTED flag on older API
           # levels (ContextCompat.registerReceiver()) - scoped to this app's
           # own package, unusable by any other app, invisible in Play
-          # Store's permission listing. Legacy Fyne never hits this because
-          # it doesn't pull in AndroidX Core; any RN/Expo app does.
+          # Store's permission listing.
           PERMS=$(aapt dump permissions "$APK" | grep 'uses-permission' \
             | grep -vc 'DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION' || true)
           echo "declared permissions: $PERMS"
@@ -296,7 +284,7 @@ jobs:
         with:
           tag_name: ${{ steps.version.outputs.tag }}
           files: |
-            remindiary-rn-${{ steps.version.outputs.tag }}.apk
-            remindiary-rn-${{ steps.version.outputs.tag }}.aab
+            remindiary-${{ steps.version.outputs.tag }}.apk
+            remindiary-${{ steps.version.outputs.tag }}.aab
           generate_release_notes: true
           prerelease: ${{ contains(steps.version.outputs.tag, '-') }}
