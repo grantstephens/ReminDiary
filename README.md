@@ -10,39 +10,7 @@ that way even if you stop using this.
 [![Licence: GPL v3](https://img.shields.io/badge/Licence-GPLv3-blue.svg)](LICENSE)
 [![Release](https://img.shields.io/github/v/release/grantstephens/ReminDiary?include_prereleases)](https://github.com/grantstephens/ReminDiary/releases)
 
-## What's here
-
-This repository holds two implementations of the same app.
-
-- **This directory (repository root)** — a [React Native](https://reactnative.dev)
-  (Expo) implementation, targeting Android and the web. This is the primary
-  implementation going forward.
-- **[`legacy-fyne/`](legacy-fyne/)** — the original Go + Fyne implementation. It is
-  kept working, and its release pipeline stays live, until this app reaches parity and
-  the real diary data has been migrated across.
-
-### Why React Native
-
-Fyne's Android text editor is broken at the architecture level, not something fixable
-from application code: it keeps a permanently-invisible dummy `EditText` around purely to
-catch keystrokes for the IME, and draws the visible text, cursor and selection itself.
-That is why the on-screen keyboard sizes oddly and copy/paste never feels native — the
-widget you type into is not the one the OS keyboard thinks it is talking to. This is a
-confirmed, long-standing category of upstream Fyne-on-Android bugs, not something this
-app's own code can work around. React Native's `TextInput` wraps the real native widget —
-`EditText` on Android, a real `<textarea>` on the web. Writing is this app's entire reason
-to exist, so a second-class editor was worth a rewrite.
-
-### Current status
-
-The migration path is verified: exporting a real 1960-entry diary from the legacy app,
-importing it here, and exporting again produces a byte-identical file (SHA-256 match).
-CSV format, statistics, and every user-visible copy string match the legacy app exactly.
-
-**Not yet verified:** on-device text editing (the entire reason this rewrite exists), the
-browser build, and a signed release build. **The APKs currently published under
-[Releases](https://github.com/grantstephens/ReminDiary/releases) are still built from
-`legacy-fyne/`** — there is no React Native release yet.
+Built with [React Native](https://reactnative.dev) (Expo), targeting Android and the web.
 
 ## Installing
 
@@ -66,25 +34,19 @@ Download the APK from the [Releases page](https://github.com/grantstephens/Remin
 and open it. Android will warn you about installing from an unknown source, because the
 app is signed with the project's own key rather than distributed through Play.
 
-> **On permissions:** every release of this app, on either implementation, declares
-> **no Android permissions at all**. Check any release for yourself with
-> `aapt dump permissions <apk>` — the list is empty.
-
-> **Upgrading from a locally built APK?** Android identifies an app by its signing
-> certificate, so a release build will not install over one you built yourself. Export
-> your entries from the Data screen first, uninstall, then install the release —
-> uninstalling deletes the database.
+> **On permissions:** every release declares **no Android permissions at all**. Check any
+> release for yourself with `aapt dump permissions <apk>` — the list is empty.
 
 ## Using it
 
-Four screens:
+Three screens:
 
 - **Write** — today's entry, one per calendar date. Saving reveals your Memories.
 - **Memories** — what you wrote on this date in previous years, newest first, labelled
   "1 year ago", "2 years ago" and so on. Empty until you have a year of history.
-- **Stats** — current streak, longest streak, total entries, and the date you started.
-  An unwritten *today* does not break your streak; an unwritten *yesterday* does.
-- **Data** — CSV export and import.
+- **Settings** — current streak, longest streak, total entries, the date you started
+  (an unwritten *today* does not break your streak; an unwritten *yesterday* does), CSV
+  export/import, and the light/dark appearance override.
 
 There is deliberately no search, no calendar picker, no notifications and no future-dated
 entries. It is a journal, not an organiser.
@@ -92,9 +54,9 @@ entries. It is a journal, not an organiser.
 ### Your data
 
 On Android the database lives in the app's private storage, so **uninstalling the app
-deletes your entries**. Export from the Data screen before you uninstall, switch devices,
-or do anything else drastic. On the web build, data lives in the browser's IndexedDB and
-is subject to the same rule — clearing site data deletes it.
+deletes your entries**. Export from the Settings screen before you uninstall, switch
+devices, or do anything else drastic. On the web build, data lives in the browser's
+IndexedDB and is subject to the same rule — clearing site data deletes it.
 
 Import merges a CSV back in, skipping dates you already have unless you tick *Overwrite
 existing entries*. Imports are all-or-nothing: the whole file is parsed and validated
@@ -108,13 +70,7 @@ date,body,created,updated
 ```
 
 `created` and `updated` are optional on import. Dates are `YYYY-MM-DD`; timestamps are
-RFC 3339 in UTC. This format is shared byte-for-byte with `legacy-fyne/`, so migrating
-between the two implementations is a plain export/import — see below.
-
-### Moving your diary from the legacy app
-
-Export from `legacy-fyne/`'s Data tab, then import here (or the reverse). Both speak the
-same CSV by design; no bespoke migration tool is needed.
+RFC 3339 in UTC.
 
 ## Development
 
@@ -136,19 +92,50 @@ Android and the web are both shipping targets.
 ```
 src/domain/    pure TypeScript: dates, entries, the Store contract, stats
 src/storage/   SqliteStore (Android) and IndexedDbStore (web), one shared contract
-src/csv/       import and export, byte-compatible with legacy-fyne/
+src/csv/       import and export
 src/screens/   Write, Memories, Settings (stats and import/export combined)
-src/platform/  the two things that differ per target: files and dialogs
+src/platform/  the things that differ per target: files, dialogs, app-backgrounding
+               signals, and the light/dark override (native-only)
+src/theme.ts, src/ThemeContext.tsx   light/dark palettes and the provider that picks one
 ```
 
 Dependencies point inward. `src/domain` imports nothing — no React, no Expo — which is
 why it is tested in a plain Node environment.
 
-### The legacy Fyne app
+### Releasing
 
-See [`legacy-fyne/README.md`](legacy-fyne/README.md) for its own build, test and release
-instructions — they are unchanged from when it was the primary app. `make legacy-check`,
-`make legacy-run` and `make legacy-apk` from the repository root delegate into it.
+Pushing a `v*` tag (e.g. `v1.0.0-beta.5`) triggers
+[`.github/workflows/release.yml`](.github/workflows/release.yml), which builds a signed
+APK and AAB and attaches them to a GitHub Release. `versionCode` is packed from the tag
+itself (see the workflow for the exact scheme), so rebuilding a tag always reproduces the
+same value.
+
+#### Signing setup
+
+Android identifies an app by its signing certificate — every release must use the *same*
+key, or existing users cannot upgrade and would have to uninstall, losing their journal.
+Generate it once, back it up somewhere you trust, and never commit it:
+
+```bash
+keytool -genkeypair -v -keystore remindiary.keystore -storetype PKCS12 \
+        -alias remindiary -keyalg RSA -keysize 4096 -validity 10000
+```
+
+Then set four repository secrets:
+
+| Secret | Value |
+|---|---|
+| `ANDROID_KEYSTORE_BASE64` | base64 of the `.keystore` file |
+| `ANDROID_KEYSTORE_PASSWORD` | keystore password |
+| `ANDROID_KEY_ALIAS` | key alias (`remindiary` above) |
+| `ANDROID_KEY_PASSWORD` | key password |
+
+```bash
+base64 -w0 remindiary.keystore | gh secret set ANDROID_KEYSTORE_BASE64
+gh secret set ANDROID_KEYSTORE_PASSWORD
+gh secret set ANDROID_KEY_ALIAS
+gh secret set ANDROID_KEY_PASSWORD
+```
 
 ## Licence
 

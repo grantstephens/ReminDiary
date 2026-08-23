@@ -15,7 +15,6 @@
 docs/
 design/
 
-# --- React Native app (repository root) ------------------------------------
 node_modules/
 .expo/
 dist/
@@ -34,20 +33,9 @@ yarn-error.*
 *.pem
 .env*.local
 
-# --- Legacy Fyne app (legacy-fyne/) -----------------------------------------
+# Local Android release builds (see .github/workflows/release.yml).
 *.apk
 *.aab
-legacy-fyne/remindiary
-
-# fyne rewrites FyneApp.toml on every build; the Makefile snapshots it here.
-.FyneApp.toml.bak
-
-# Generated from AndroidManifest.xml.in at build time.
-legacy-fyne/cmd/remindiary/AndroidManifest.xml
 
 # Brainstorming visual companion scratch mockups
 .superpowers/
-
-# Go
-*.test
-*.out

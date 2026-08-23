@@ -10,17 +10,6 @@ An offline daily journal (React Native + Expo). One entry per calendar date; sav
 today's entry reveals what you wrote on the same day in previous years. Android and the
 web are both shipping targets.
 
-This is a from-scratch rewrite of the app previously implemented in Go/Fyne, which now
-lives in [`legacy-fyne/`](legacy-fyne/) — see its own section below. The rewrite exists
-because Fyne's Android text editor is broken at the architecture level: it relays
-keystrokes to a permanently-invisible dummy `EditText` while drawing the visible text,
-cursor and selection itself, which is why the on-screen keyboard sizes oddly and
-copy/paste never feels native. React Native's `TextInput` wraps the real native widget
-instead. `legacy-fyne/` stays working, and its release pipeline stays live, until this
-app reaches parity and the real diary data has been migrated across — both apps read and
-write the same CSV format byte-for-byte, verified against a real 1960-entry export
-(SHA-256 identical after export → import → export).
-
 The design spec and implementation plan for this app live under `design/` in the local
 working tree and are deliberately not published to the remote — this repository is
 public and design documents are not committed. See `.gitignore`. Do not write
@@ -73,12 +62,12 @@ nothing imports from `src/screens` except `App.tsx`.
 | Directory | Role |
 |---|---|
 | `src/domain` | Domain only: `JournalDate`, `Entry`, the `Store` interface, `computeStats`. Imports nothing external — no React, no Expo — which is why it runs in a plain Node Jest environment. |
-| `src/storage` | `SqliteStore` (Android, via `expo-sqlite`/`node:sqlite`) and `IndexedDbStore` (web), held to one shared behavioural contract (`storeContract.ts`) run against both — the same role `internal/storetest` plays for the legacy app. |
-| `src/csv` | Import and export against a `Store`, byte-compatible with `legacy-fyne/internal/csvio`. |
+| `src/storage` | `SqliteStore` (Android, via `expo-sqlite`/`node:sqlite`) and `IndexedDbStore` (web), held to one shared behavioural contract (`storeContract.ts`) run against both. |
+| `src/csv` | Import and export against a `Store`: `date,body,created,updated`. |
 | `src/screens` | Write, Memories, Settings (stats and import/export combined). |
 | `src/platform` | The things that genuinely differ per target: file access (`files.*`), dialogs (`confirm.*` — React Native's `Alert` is a silent no-op on `react-native-web`), app-backgrounding signals (`lifecycle.*`), and the light/dark override (`themePreference.*`, native-only — see below). |
 | `src/theme.ts`, `src/ThemeContext.tsx` | Colors. `theme.ts` is the two palettes (light/dark), pure data. `ThemeContext`'s `ThemeProvider`/`useTheme()` follows the system color scheme by default, or a stored override from `platform/themePreference` — native-only by design; on web it always resolves to the light theme and never touches the preference file, so web keeps the appearance it always had. |
-| `App.tsx` / `JournalContext.tsx` | Store bootstrap, the error screen, and the cross-screen wiring: a `revision` counter every write path bumps, and an `onSaved` callback the Write screen fires that `App.tsx` turns into "reveal Memories" — the same role `app.go`'s `refreshDerived()`/`OnSaved` wiring plays for the legacy app. |
+| `App.tsx` / `JournalContext.tsx` | Store bootstrap, the error screen, and the cross-screen wiring: a `revision` counter every write path bumps, and an `onSaved` callback the Write screen fires that `App.tsx` turns into "reveal Memories". |
 
 ### Invariants worth not breaking
 
@@ -102,7 +91,7 @@ nothing imports from `src/screens` except `App.tsx`.
 - **Nothing crashes on a user's device.** `Store` methods reject with errors; screens
   surface them with `notify()`, never let one propagate. A failed database open renders
   an error screen, not a blank app. A cancelled file picker is not an error.
-- **Android ships zero permissions**, matching `legacy-fyne/`. `app.json` sets
+- **Android ships zero permissions.** `app.json` sets
   `android.permissions: []`, but that is an allowlist — `expo-sqlite`, `expo-sharing`,
   `expo-document-picker` and `expo-file-system` all contribute config plugins that can
   inject permissions at prebuild time regardless. The five they do inject
@@ -154,20 +143,19 @@ TDD throughout: failing test first, watch it fail, then implement.
 The database is `journal.db`: `SqliteStore` on Android (via `expo-sqlite`), IndexedDB in
 the browser. On Android, uninstalling deletes it; in the browser, clearing site data
 does. `tools/convert-legacy-backup.py` converts an old `timestamp,body` export into the
-`date,body,created,updated` CSV both apps' importers want, applying the
-after-midnight-belongs-to-yesterday rule.
+`date,body,created,updated` CSV the importer wants, applying the after-midnight-belongs-
+to-yesterday rule.
 
 ## Assets
 
-The app icon is a flat re-draw of `legacy-fyne/icon.svg`'s stacked-date-cards concept —
-solid colors, no gradients or blurred drop shadows, so the layered edges stay crisp at
-small sizes and through Android's adaptive-icon squircle crop. `assets/icon.svg` is the
+The app icon is a flat stacked-date-cards design — solid colors, no gradients or blurred
+drop shadows, so the layered edges stay crisp at small sizes and through Android's
+adaptive-icon squircle crop. `assets/icon.svg` is the
 editable source (full-bleed, artwork centered in the safe zone); `assets/icon-foreground.svg`
 and `assets/icon-monochrome.svg` are the split layers Android's adaptive icon needs — the
-background is a flat `backgroundColor` in `app.json`, not an image. As with the legacy
-icon, the numeral is an outlined path rather than `<text>`, produced the same way: write
-the digits as real `<text>`, then let a tool bake in the font so the file renders
-identically on a machine without it —
+background is a flat `backgroundColor` in `app.json`, not an image. The numeral is an
+outlined path rather than `<text>`, produced by writing the digits as real `<text>` and
+letting a tool bake in the font so the file renders identically on a machine without it —
 `inkscape text.svg --export-text-to-path --export-plain-svg --export-filename=text-path.svg`
 (source font: Liberation Sans Bold) — and hand-copy the resulting `<path>` into place.
 `icon-monochrome.svg` punches the numeral out of the card stack as negative space (an SVG
@@ -185,74 +173,3 @@ rsvg-convert -w 1024 -h 1024 icon-monochrome.svg -o android-icon-monochrome.png
 rsvg-convert -w 48 -h 48 icon.svg -o favicon.png
 ```
 
----
-
-## The legacy Fyne implementation (`legacy-fyne/`)
-
-The original Go + Fyne + bbolt implementation. Kept working, with a live release
-pipeline, until the React Native app above reaches parity and real diary data has been
-migrated. Its own `README.md` and this section cover everything specific to it; nothing
-above applies to it except the CSV format, which both apps share byte-for-byte.
-
-### Commands
-
-```bash
-make legacy-check          # gofmt + go vet + go test — from the repository root
-make legacy-run            # real desktop window (needs GL/X libs; make -C legacy-fyne deps reports gaps)
-make legacy-run-headless   # full startup path, software driver, exits immediately
-make legacy-apk            # Android package (needs fyne CLI + ANDROID_HOME/ANDROID_NDK_HOME)
-```
-
-Or `cd legacy-fyne` and use its own `Makefile` directly — see
-[`legacy-fyne/README.md`](legacy-fyne/README.md).
-
-`TAGS` defaults to `ci`, which selects Fyne's software driver so every target works on a
-headless machine. Only `cmd/remindiary` needs the tag — it is the one package that pulls
-in a driver; the test suite is headless either way. To exercise the real GLFW desktop
-driver: `make -C legacy-fyne check TAGS=`.
-
-### Architecture
-
-Layered, dependencies pointing inward. `ui` and `csvio` depend on `journal`; `boltstore`
-and `memstore` implement `journal.Store`; nothing depends on `ui`; `cmd/remindiary` is
-the only package that knows both `boltstore` and `ui` exist.
-
-| Package | Role |
-|---|---|
-| `internal/journal` | Domain only: `Date`, `Entry`, the `Store` interface, `ComputeStats`. No storage, UI, or file-format code. |
-| `internal/boltstore` | bbolt `Store`. Bucket `entries`: ISO date key → JSON `Entry`. Bucket `meta`: `schema_version`. |
-| `internal/memstore` | In-memory `Store` for every other package's tests. |
-| `internal/storetest` | The `Store` behavioural contract, run against *both* implementations. |
-| `internal/csvio` | Import/export against a `Store`. |
-| `internal/ui` | Four Fyne screens plus `app.go`, which wires them together. |
-
-`journal.Date` is a string, `"2006-01-02"`, always zero-padded, for the same
-lexicographic-order reason as the React Native app's `JournalDate`. All date arithmetic
-happens in UTC (`Date.Time()` returns midnight UTC). Stats are derived, never stored,
-with the same grace rule. Import is all-or-nothing. Nothing panics: the UI surfaces
-errors with `dialog.ShowError`. Dependencies are exactly `fyne.io/fyne/v2` and
-`go.etcd.io/bbolt`.
-
-Each screen is a struct with `NewX(store, [win,] now)`, a `Content() fyne.CanvasObject`,
-and — for the derived screens — a `Refresh() error`. Screens never reach across to each
-other: they expose callbacks (`Write.OnSaved`, `Data.OnImported`) that `app.go` wires to
-`reload()` / `refreshDerived()`. `now func() time.Time` is injected everywhere rather
-than calling `time.Now`, so tests can pin "today". `FyneApp.toml` sets `fyneDo = true`,
-declaring that every UI call is already on the main goroutine — keep it that way.
-
-### Testing
-
-Same TDD discipline as the React Native app: `journal` is table-driven pure logic; store
-implementations add cases to `storetest.Run`, never to one store's own test file; `csvio`
-covers round-trip identity, skip vs overwrite, malformed rows, atomicity; `ui` uses
-`test.NewApp()` smoke tests over `memstore`, asserting behaviour rather than pixels.
-
-### Assets
-
-`icon.png` (512×512, full-bleed, no alpha) is a committed asset, not a build product —
-there is no generator target and nothing regenerates it. `icon.svg` beside it is the
-editable source; re-export with `rsvg-convert -w 1024 -h 1024 icon.svg -o /tmp/i.png &&
-magick /tmp/i.png -resize 512x512 -strip icon.png` if you change it. The numeral is an
-outlined path rather than `<text>` so the SVG renders identically without fonts. Keep the
-artwork inside the centre of the canvas: Android's adaptive-icon mask crops to a circle or
-squircle, and the full-bleed background is what gives it something to crop.
