@@ -123,20 +123,13 @@ Builds:
       # already asserts on for its own (different) signing patch, so a
       # future Expo template change breaks this loudly instead of
       # silently shipping a debug-signed "release" APK.
-      - |-
-        python3 -c "
-        path = 'android/app/build.gradle'
-        with open(path) as f:
-            content = f.read()
-        anchor = '''            // Caution! In production, you need to generate your own keystore file.
-                    // see https://reactnative.dev/docs/signed-apk-android.
-                    signingConfig signingConfigs.debug'''
-        assert content.count(anchor) == 1, 'signingConfig anchor not found verbatim - Expo template may have changed'
-        stripped = anchor.replace('\n            signingConfig signingConfigs.debug', '')
-        content = content.replace(anchor, stripped, 1)
-        with open(path, 'w') as f:
-            f.write(content)
-        "
+      - python3 -c "path = 'android/app/build.gradle'; f = open(path); content = f.read();
+        f.close(); anchor = '            // Caution! In production, you need to generate
+        your own keystore file.\n            // see https://reactnative.dev/docs/signed-apk-android.\n            signingConfig
+        signingConfigs.debug'; line = '\n            signingConfig signingConfigs.debug';
+        assert content.count(anchor) == 1, 'signingConfig anchor not found verbatim'; stripped
+        = anchor.replace(line, ''); content = content.replace(anchor, stripped, 1); f =
+        open(path, 'w'); f.write(content); f.close()"
       # Headroom for the gradle daemon during a real Hermes/AGP build -
       # com.mmazzarolo.breathly.yml carries the same line for the same
       # buildserver.
