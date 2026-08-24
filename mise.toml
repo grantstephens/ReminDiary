@@ -2,3 +2,4 @@
 [tools]
 # Expo SDK 57 wants Node 20 or newer.
 node = "24.16.0"
+"pipx:fdroidserver" = "2.4.5"

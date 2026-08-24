@@ -1,0 +1,142 @@
+# DRAFT — not yet submitted to fdroiddata.
+#
+# This is a working copy of the recipe that would eventually be copied into
+# a checkout of https://gitlab.com/fdroid/fdroiddata as
+# metadata/xyz.hub13.remindiary.yml for the inclusion merge request. It has
+# NOT been run against F-Droid's actual isolated buildserver yet — every
+# block marked VERIFY below is a guess grounded in this repo's own working
+# release.yml and in real precedent (fdroiddata's com.mattermost.rnbeta.yml),
+# not a confirmed-working recipe. Validate with `fdroid build --verbose`
+# against the real buildserver VM before opening the MR.
+
+Categories:
+  - Writing
+License: GPL-3.0-or-later
+SourceCode: https://github.com/grantstephens/ReminDiary
+IssueTracker: https://github.com/grantstephens/ReminDiary/issues
+Changelog: https://github.com/grantstephens/ReminDiary/releases
+
+AutoName: ReminDiary
+Summary: Offline daily journal that surfaces what you wrote this day in past years
+Description: |-
+  ReminDiary is an offline daily journal. Write today's entry and save it, and the
+  app reveals what you wrote on this same calendar date in previous years.
+
+  Everything stays on your device. There is no account, no sync, and no networking
+  code of any kind — this build has zero Android permissions. Entries export to and
+  import from plain CSV, so your writing is never locked in.
+
+  * One entry per calendar date
+  * Automatic reveal of past entries on the same date in previous years
+  * CSV export and import
+  * Light and dark themes, following the system by default
+  * Ships with zero Android permissions
+
+RepoType: git
+Repo: https://github.com/grantstephens/ReminDiary.git
+
+Builds:
+  - versionName: 1.0.0-beta.4
+    versionCode: 10000204
+    commit: v1.0.0-beta.4
+    subdir: android
+
+    # Setup phase — this is where network access is allowed. Mirrors the
+    # Node bootstrap pattern from fdroiddata's own React Native recipes
+    # (raw node.js binary + checksum, since the buildserver's system Node
+    # is too old for Expo SDK 57 / RN 0.86). Checksum pulled from nodejs.org's
+    # own SHASUMS256.txt for v24.16.0, matching this repo's mise.toml pin.
+    # VERIFY: whether the buildserver image already ships OpenJDK 17 — if
+    # so, the apt-get lines are redundant and can go.
+    sudo:
+      - apt-get update
+      - apt-get install -y --no-install-recommends openjdk-17-jdk-headless
+      - curl -Lo /tmp/node.tar.xz https://nodejs.org/dist/v24.16.0/node-v24.16.0-linux-x64.tar.xz
+      - echo "d804845d34eddc21dc1092b519d643ef40b1f58ec5dec5c22b1f4bd8fabde6c9  /tmp/node.tar.xz" | sha256sum -c -
+      - tar xJf /tmp/node.tar.xz --strip-components=1 -C /usr/local/
+
+    # Still setup phase, still network-allowed. `npm ci` is the one real
+    # unknown here — this is the exact step that decides whether Expo/RN
+    # apps are even buildable on F-Droid's infra. CI=1 and
+    # EXPO_NO_TELEMETRY=1 suppress Expo CLI's own network calls (update
+    # checks, anonymous telemetry) so nothing outside `npm ci` itself tries
+    # to reach the network.
+    init:
+      - export CI=1
+      - export EXPO_NO_TELEMETRY=1
+      - npm ci
+
+    # No network from here on — this has to be reproducible.
+    # `--no-install` is load-bearing: dependencies are already resolved by
+    # `npm ci` above, so prebuild only reads local node_modules/app.json.
+    #
+    # The version patch mirrors release.yml's "Set app.json version" step.
+    # The signing patch is the one real difference from release.yml: our own
+    # CI *adds* a real release signingConfig (using secrets F-Droid's build
+    # server doesn't have). F-Droid instead wants the signingConfig line
+    # *removed* entirely, so `assembleRelease` emits an app-release-unsigned.apk
+    # for F-Droid to sign with its own key — same anchor text release.yml
+    # already asserts on, so a future Expo template change breaks this
+    # loudly instead of silently shipping a debug-signed "release" APK.
+    prebuild:
+      - export CI=1
+      - export EXPO_NO_TELEMETRY=1
+      - |
+        node -e "
+        const fs = require('fs');
+        const config = JSON.parse(fs.readFileSync('../app.json', 'utf8'));
+        config.expo.version = '1.0.0-beta.4';
+        config.expo.android.versionCode = 10000204;
+        fs.writeFileSync('../app.json', JSON.stringify(config, null, 2) + '\n');
+        "
+      - cd .. && npx expo prebuild --platform android --no-install
+      - |
+        python3 -c "
+        path = 'app/build.gradle'
+        with open(path) as f:
+            content = f.read()
+        anchor = '''            // Caution! In production, you need to generate your own keystore file.
+                    // see https://reactnative.dev/docs/signed-apk-android.
+                    signingConfig signingConfigs.debug'''
+        assert content.count(anchor) == 1, 'signingConfig anchor not found verbatim - Expo template may have changed'
+        stripped = anchor.replace('\n                    signingConfig signingConfigs.debug', '')
+        content = content.replace(anchor, stripped, 1)
+        with open(path, 'w') as f:
+            f.write(content)
+        "
+
+    gradle:
+      - yes
+
+    # Confirmed by inspecting this repo's actual node_modules (not guessed):
+    # hermes-compiler ships prebuilt cross-compiler binaries for all three
+    # host platforms, and lightningcss ships a native .node addon. Both are
+    # build-time-only tools, never bundled into the APK, but F-Droid's
+    # scanner flags any prebuilt binary in the source tree regardless.
+    # The osx/win64 hermesc variants are dead weight on a Linux buildserver,
+    # so those get deleted outright rather than just ignored.
+    # VERIFY: this list is almost certainly incomplete until `android/` has
+    # actually been generated once and scanned for real — react-native
+    # itself and any of its transitive deps may add more once prebuild runs.
+    scanignore:
+      - node_modules/hermes-compiler/hermesc/linux64-bin/hermesc
+      - node_modules/lightningcss-linux-x64-gnu/lightningcss.linux-x64-gnu.node
+    scandelete:
+      - node_modules/hermes-compiler/hermesc/osx-bin
+      - node_modules/hermes-compiler/hermesc/win64-bin
+
+    # VERIFY: relative to subdir (android/). This is gradle's standard
+    # output path for a signingConfig-less release build type; confirm once
+    # a real build produces it.
+    output: app/build/outputs/apk/release/app-release-unsigned.apk
+
+# No AutoUpdateMode:Version — the packed versionCode (see release.yml's
+# comment on the scheme) isn't a plain %v/%c substitution F-Droid's
+# auto-updater can derive from the tag text alone. Every new release needs
+# its own Builds: entry added by hand (`fdroid checkupdates` will just flag
+# that a new tag exists, not generate the entry). That is an ongoing
+# per-release chore, not a one-time submission cost — worth weighing.
+AutoUpdateMode: None
+UpdateCheckMode: Tags
+CurrentVersion: 1.0.0-beta.4
+CurrentVersionCode: 10000204
