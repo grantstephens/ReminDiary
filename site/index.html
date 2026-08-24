@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ReminDiary</title>
+<meta name="description" content="An offline daily journal for Android and the web that shows you your own past.">
+<style>
+  :root {
+    --bg: #ffffff;
+    --surface: #f2f2f2;
+    --text: #1c1c1e;
+    --text-muted: #6e6e73;
+    --accent: #0a84ff;
+    --border: #d1d1d6;
+    --hero: #2e2a26;
+    --hero-text: #f2ede6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #121212;
+      --surface: #1e1e1e;
+      --text: #e5e5e7;
+      --text-muted: #9b9ba1;
+      --accent: #0a84ff;
+      --border: #2c2c2e;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.55;
+  }
+  a { color: var(--accent); }
+  .hero {
+    background: var(--hero);
+    color: var(--hero-text);
+    padding: 72px 24px 56px;
+    text-align: center;
+  }
+  .hero h1 {
+    margin: 0 0 12px;
+    font-size: clamp(2rem, 5vw, 2.75rem);
+    letter-spacing: -0.02em;
+  }
+  .hero p {
+    margin: 0 auto;
+    max-width: 40em;
+    font-size: 1.15rem;
+    color: #cfc7bd;
+  }
+  main {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 48px 24px 80px;
+  }
+  section { margin-bottom: 40px; }
+  h2 {
+    font-size: 1.1rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    margin: 0 0 16px;
+  }
+  .cards {
+    display: grid;
+    gap: 12px;
+  }
+  .card {
+    display: block;
+    padding: 18px 20px;
+    border-radius: 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    text-decoration: none;
+    color: var(--text);
+  }
+  .card strong { display: block; margin-bottom: 4px; }
+  .card span { color: var(--text-muted); font-size: 0.95rem; }
+  ul.features {
+    padding-left: 1.2em;
+    color: var(--text);
+  }
+  ul.features li { margin-bottom: 6px; }
+  footer {
+    text-align: center;
+    padding: 32px 24px 48px;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+  }
+  footer a { color: var(--text-muted); }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <h1>ReminDiary</h1>
+  <p>An offline daily journal for Android and the web that shows you your own past.
+     Write today's entry, save it, and it surfaces what you wrote on this same date
+     in previous years.</p>
+</div>
+
+<main>
+  <section>
+    <h2>What it is</h2>
+    <ul class="features">
+      <li>One entry per calendar date</li>
+      <li>Saving today's entry reveals what you wrote on this day in past years</li>
+      <li>Everything lives on your device — no account, no sync</li>
+      <li>CSV export and import, so your writing is never locked in</li>
+      <li>Ships with a single Android permission — see <a href="/privacy/">Privacy</a></li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Get it</h2>
+    <div class="cards">
+      <a class="card" href="https://github.com/grantstephens/ReminDiary">
+        <strong>Source on GitHub</strong>
+        <span>GPLv3 · grantstephens/ReminDiary</span>
+      </a>
+      <a class="card" href="https://github.com/grantstephens/ReminDiary#installing">
+        <strong>Install with Obtainium</strong>
+        <span>Installs straight from GitHub Releases, no app store in the middle</span>
+      </a>
+      <a class="card" href="https://github.com/grantstephens/ReminDiary/releases">
+        <strong>Releases</strong>
+        <span>Signed APKs and AABs for every tagged version</span>
+      </a>
+    </div>
+  </section>
+
+  <section>
+    <h2>Privacy</h2>
+    <p>
+      ReminDiary is built to work fully offline. The only network activity in the
+      app at all is an opt-in, off-by-default analytics toggle in Settings.
+      Read the full <a href="/privacy/">privacy policy</a> for exactly what that
+      does and does not send.
+    </p>
+  </section>
+</main>
+
+<footer>
+  <a href="https://github.com/grantstephens/ReminDiary">GitHub</a>
+  ·
+  <a href="/privacy/">Privacy</a>
+  ·
+  Licensed GPLv3
+</footer>
+
+</body>
+</html>

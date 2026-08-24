@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy — ReminDiary</title>
+<meta name="description" content="ReminDiary's privacy policy: what the opt-in analytics toggle sends, what it never sends, and how to turn it off.">
+<style>
+  :root {
+    --bg: #ffffff;
+    --surface: #f2f2f2;
+    --text: #1c1c1e;
+    --text-muted: #6e6e73;
+    --accent: #0a84ff;
+    --border: #d1d1d6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #121212;
+      --surface: #1e1e1e;
+      --text: #e5e5e7;
+      --text-muted: #9b9ba1;
+      --accent: #0a84ff;
+      --border: #2c2c2e;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.6;
+  }
+  a { color: var(--accent); }
+  main {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 56px 24px 80px;
+  }
+  header { margin-bottom: 40px; }
+  header a.back {
+    display: inline-block;
+    margin-bottom: 24px;
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    text-decoration: none;
+  }
+  h1 { margin: 0 0 8px; letter-spacing: -0.02em; }
+  .updated { color: var(--text-muted); font-size: 0.9rem; }
+  .summary {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px 22px;
+    margin: 32px 0;
+  }
+  .summary p { margin: 0; }
+  h2 {
+    font-size: 1.15rem;
+    margin: 40px 0 12px;
+  }
+  ul { padding-left: 1.2em; }
+  li { margin-bottom: 6px; }
+  code {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-size: 0.9em;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+  }
+  th, td {
+    text-align: left;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.95rem;
+    vertical-align: top;
+  }
+  th { color: var(--text-muted); font-weight: 600; }
+  footer {
+    margin-top: 56px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: 0.9rem;
+  }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <a class="back" href="/">&larr; ReminDiary</a>
+    <h1>Privacy Policy</h1>
+    <p class="updated">Last updated 2026-08-24</p>
+  </header>
+
+  <div class="summary">
+    <p>
+      ReminDiary is built to work fully offline. Your journal entries never leave
+      your device unless you export them yourself. The only network activity
+      the app performs at all is a single opt-in, <strong>off-by-default</strong>
+      analytics toggle in Settings, which — when turned on — reports which
+      screen you're on. Nothing else. No entry content, no dates, no account,
+      no device identifier.
+    </p>
+  </div>
+
+  <h2>Your journal entries</h2>
+  <p>
+    Entries are stored locally on your device — SQLite on Android, IndexedDB in
+    a browser. They are never transmitted anywhere by the app itself. CSV
+    export/import moves data between a file and your device's storage; both
+    stay entirely under your control.
+  </p>
+
+  <h2>The analytics toggle</h2>
+  <p>
+    Settings has a toggle, off by default, labelled "Share anonymous usage
+    analytics." Turning it on sends a screen-view event — nothing more —
+    to a self-hosted <a href="https://umami.is">Umami</a> instance
+    the developer runs, each time you switch between the Write, Memories, and
+    Settings tabs.
+  </p>
+
+  <table>
+    <tr><th>Field</th><th>Example</th><th>What it's for</th></tr>
+    <tr>
+      <td><code>url</code></td>
+      <td><code>/Write</code></td>
+      <td>Which tab you switched to. Only ever one of <code>/Write</code>,
+        <code>/Memories</code>, or <code>/Settings</code>.</td>
+    </tr>
+    <tr>
+      <td><code>hostname</code></td>
+      <td><code>android</code> or <code>web</code></td>
+      <td>Which build sent the event, nothing more specific than the platform.</td>
+    </tr>
+  </table>
+
+  <p>That's the entire payload. It never includes:</p>
+  <ul>
+    <li>Anything you've written — no entry content, ever</li>
+    <li>Which date you're viewing or editing</li>
+    <li>Any account, username, or device identifier the app controls</li>
+    <li>Precise location, contacts, or any other device data</li>
+  </ul>
+
+  <p>
+    Umami counts unique visits without cookies: it derives a session identifier
+    server-side from the requesting IP address and browser/app identifier,
+    salted and rotated on its own schedule, and does not persist a long-lived
+    identifier tying your visits together over time.
+  </p>
+
+  <h2>Turning it off</h2>
+  <p>
+    Open Settings and switch "Share anonymous usage analytics" off at any
+    time. No event is sent while it's off, including the very first launch —
+    it defaults to off and nothing is sent until you deliberately turn it on.
+  </p>
+
+  <h2>Changes to this policy</h2>
+  <p>
+    If what's collected ever changes, this page changes with it. The source
+    for both the app and this site is public — see
+    <a href="https://github.com/grantstephens/ReminDiary">the repository</a>
+    for the exact code that builds and sends these events
+    (<code>src/platform/analytics.*.ts</code>).
+  </p>
+
+  <footer>
+    Questions or concerns: open an issue on
+    <a href="https://github.com/grantstephens/ReminDiary/issues">GitHub</a>.
+  </footer>
+</main>
+</body>
+</html>
