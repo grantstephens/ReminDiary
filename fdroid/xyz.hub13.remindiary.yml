@@ -17,7 +17,6 @@ IssueTracker: https://github.com/grantstephens/ReminDiary/issues
 Changelog: https://github.com/grantstephens/ReminDiary/releases
 
 AutoName: ReminDiary
-Summary: Offline daily journal that surfaces what you wrote this day in past years
 Description: |-
   ReminDiary is an offline daily journal. Write today's entry and save it, and the
   app reveals what you wrote on this same calendar date in previous years.
@@ -59,10 +58,16 @@ Builds:
     # buildserver's system nodejs (Debian trixie ships 20.19.2), so the
     # build uses the exact same Node version as every other release of
     # this app. Checksum from nodejs.org's own SHASUMS256.txt.
+    #
+    # .tar.gz, not .tar.xz: confirmed by a real CI failure on the actual
+    # fdroiddata pipeline - the buildserver's Debian trixie image has no
+    # `xz` binary, so `tar xJf` fails with "Cannot exec: No such file or
+    # directory" even though the download and checksum both succeed. gzip
+    # is always available; nodejs.org publishes both formats.
     sudo:
-      - curl -Lo /tmp/node.tar.xz https://nodejs.org/dist/v24.16.0/node-v24.16.0-linux-x64.tar.xz
-      - echo "d804845d34eddc21dc1092b519d643ef40b1f58ec5dec5c22b1f4bd8fabde6c9  /tmp/node.tar.xz" | sha256sum -c -
-      - tar xJf /tmp/node.tar.xz --strip-components=1 -C /usr/local/
+      - curl -Lo /tmp/node.tar.gz https://nodejs.org/dist/v24.16.0/node-v24.16.0-linux-x64.tar.gz
+      - echo "2faf6a387e9b62b888e21c54f01249fb27537ffecf1842f29f4c919d0a59a0ff  /tmp/node.tar.gz" | sha256sum -c -
+      - tar xzf /tmp/node.tar.gz --strip-components=1 -C /usr/local/
 
     # Still setup phase, still network-allowed. `npm ci` is the one real
     # unknown here — this is the exact step that decides whether Expo/RN
