@@ -13,6 +13,7 @@ import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { JournalProvider, useJournal } from './JournalContext';
 import type { UnsavedGuard } from './JournalContext';
 import type { Store } from './domain/store';
+import { trackScreenView } from './platform/analytics';
 import { openStore } from './storage/openStore';
 import { MemoriesScreen } from './screens/Memories';
 import { SettingsScreen } from './screens/Settings';
@@ -142,7 +143,12 @@ function AppInner() {
     <SafeAreaProvider>
       <StatusBar style={statusBarStyle} />
       <JournalProvider store={store} now={now} onSaved={revealMemories} onOpenWrite={openWrite}>
-        <NavigationContainer ref={navigationRef} theme={navigationTheme(theme)}>
+        <NavigationContainer
+          ref={navigationRef}
+          theme={navigationTheme(theme)}
+          onReady={reportInitialScreen}
+          onStateChange={handleStateChange}
+        >
           <Tabs />
         </NavigationContainer>
       </JournalProvider>
@@ -165,6 +171,36 @@ function revealMemories() {
  */
 function openWrite() {
   if (navigationRef.isReady()) navigationRef.navigate('Write');
+}
+
+/**
+ * reportInitialScreen covers the one gap onStateChange leaves: react-navigation
+ * does not fire it for the very first route, only for changes after that, so
+ * the initial tab (always Write) would otherwise never be reported.
+ */
+function reportInitialScreen() {
+  if (!navigationRef.isReady()) return;
+  const route = navigationRef.getCurrentRoute();
+  if (route) void trackScreenView(route.name);
+}
+
+/** The subset of react-navigation's state handleStateChange needs. */
+interface TabNavigationState {
+  index: number;
+  routes: { name: string }[];
+}
+
+/**
+ * handleStateChange reports the currently focused tab as a screen view.
+ * Exported and tested directly, same reasoning as handleTabPress: the real
+ * thing only fires from a mounted NavigationContainer's onStateChange prop.
+ * There is no nested navigator here (Tabs is the whole tree), so the focused
+ * route is always state.routes[state.index] - no recursive walk needed.
+ */
+export function handleStateChange(state: TabNavigationState | undefined): void {
+  if (!state) return;
+  const route = state.routes[state.index];
+  if (route) void trackScreenView(route.name);
 }
 
 /** The subset of a navigation object handleTabPress needs. */

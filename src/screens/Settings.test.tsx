@@ -13,6 +13,7 @@ import { SettingsScreen, days, formatImportResult, statsLines } from './Settings
 jest.mock('../platform/files');
 jest.mock('../platform/confirm');
 jest.mock('../platform/themePreference');
+jest.mock('../platform/analytics');
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { pickCsv, saveCsv } = require('../platform/files') as {
   pickCsv: jest.Mock;
@@ -27,6 +28,11 @@ const { confirm, notify } = require('../platform/confirm') as {
 const { getThemeMode, setThemeMode } = require('../platform/themePreference') as {
   getThemeMode: jest.Mock;
   setThemeMode: jest.Mock;
+};
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { getAnalyticsEnabled, setAnalyticsEnabled } = require('../platform/analytics') as {
+  getAnalyticsEnabled: jest.Mock;
+  setAnalyticsEnabled: jest.Mock;
 };
 
 const now = () => new Date('2026-08-19T12:00:00Z');
@@ -43,6 +49,10 @@ beforeEach(async () => {
   getThemeMode.mockResolvedValue(null);
   setThemeMode.mockReset();
   setThemeMode.mockResolvedValue(undefined);
+  getAnalyticsEnabled.mockReset();
+  getAnalyticsEnabled.mockResolvedValue(false);
+  setAnalyticsEnabled.mockReset();
+  setAnalyticsEnabled.mockResolvedValue(undefined);
   originalOS = Platform.OS;
 });
 afterEach(async () => {
@@ -425,5 +435,46 @@ describe('appearance section', () => {
     Platform.OS = 'web';
     await renderSettings();
     expect(screen.queryByTestId('appearance-system')).toBeNull();
+  });
+});
+
+describe('analytics section', () => {
+  test('is off by default', async () => {
+    await renderSettings();
+    expect(screen.getByTestId('analytics-enabled').props.value).toBe(false);
+  });
+
+  test('loads a previously persisted choice', async () => {
+    getAnalyticsEnabled.mockResolvedValue(true);
+    await renderSettings();
+    await waitFor(() => expect(screen.getByTestId('analytics-enabled').props.value).toBe(true));
+  });
+
+  test('toggling it on persists the choice', async () => {
+    await renderSettings();
+    await act(async () => {
+      fireEvent(screen.getByTestId('analytics-enabled'), 'valueChange', true);
+    });
+    expect(screen.getByTestId('analytics-enabled').props.value).toBe(true);
+    expect(setAnalyticsEnabled).toHaveBeenCalledWith(true);
+  });
+
+  test('toggling it off persists the choice', async () => {
+    getAnalyticsEnabled.mockResolvedValue(true);
+    await renderSettings();
+    await waitFor(() => expect(screen.getByTestId('analytics-enabled').props.value).toBe(true));
+    await act(async () => {
+      fireEvent(screen.getByTestId('analytics-enabled'), 'valueChange', false);
+    });
+    expect(screen.getByTestId('analytics-enabled').props.value).toBe(false);
+    expect(setAnalyticsEnabled).toHaveBeenCalledWith(false);
+  });
+
+  // Unlike Appearance, this is not native-only: analytics applies to both
+  // shipping targets, so the toggle has to be reachable on web too.
+  test('is shown on web as well as native', async () => {
+    Platform.OS = 'web';
+    await renderSettings();
+    expect(screen.getByTestId('analytics-enabled')).toBeTruthy();
   });
 });

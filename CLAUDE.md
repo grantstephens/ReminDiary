@@ -91,14 +91,17 @@ nothing imports from `src/screens` except `App.tsx`.
 - **Nothing crashes on a user's device.** `Store` methods reject with errors; screens
   surface them with `notify()`, never let one propagate. A failed database open renders
   an error screen, not a blank app. A cancelled file picker is not an error.
-- **Android ships zero permissions.** `app.json` sets
+- **Android ships one permission: `INTERNET`, and nothing else.** `app.json` sets
   `android.permissions: []`, but that is an allowlist — `expo-sqlite`, `expo-sharing`,
   `expo-document-picker` and `expo-file-system` all contribute config plugins that can
   inject permissions at prebuild time regardless. The five they do inject
   (`INTERNET`, `READ_EXTERNAL_STORAGE`, `WRITE_EXTERNAL_STORAGE`, `SYSTEM_ALERT_WINDOW`,
-  `VIBRATE`) are listed in `android.blockedPermissions`. Verify any real build with
-  `aapt dump permissions <apk>` — `tools:node="remove"` in the merged manifest is the
-  correct directive, but only Gradle's manifest merger actually applies it.
+  `VIBRATE`) are listed in `android.blockedPermissions` — except `INTERNET`, unblocked
+  deliberately because it backs the opt-in, off-by-default Umami analytics toggle in
+  Settings (`src/platform/analytics.*.ts`); nothing else in the app performs network
+  I/O. Verify any real build with `aapt dump permissions <apk>` — `tools:node="remove"`
+  in the merged manifest is the correct directive, but only Gradle's manifest merger
+  actually applies it.
 - Out of scope by design: notifications, full-text search, calendar picker or archive
   list, future-dated entries, more than one entry per day.
 

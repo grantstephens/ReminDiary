@@ -6,6 +6,7 @@ import { displayDate, today } from '../domain/date';
 import { computeStats, type Stats } from '../domain/stats';
 import { exportCsv, exportFileName } from '../csv/export';
 import { formatRowError, importCsv, type ImportResult } from '../csv/import';
+import { getAnalyticsEnabled, setAnalyticsEnabled } from '../platform/analytics';
 import { confirm, notify } from '../platform/confirm';
 import { pickCsv, saveCsv } from '../platform/files';
 import { useTheme } from '../ThemeContext';
@@ -67,6 +68,22 @@ export function SettingsScreen() {
   const [stats, setStats] = useState<Stats>(EMPTY);
   const [overwrite, setOverwrite] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [analyticsEnabled, setAnalyticsEnabledState] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void getAnalyticsEnabled().then((enabled) => {
+      if (!cancelled) setAnalyticsEnabledState(enabled);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const onToggleAnalytics = (enabled: boolean) => {
+    setAnalyticsEnabledState(enabled);
+    void setAnalyticsEnabled(enabled);
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -164,6 +181,22 @@ export function SettingsScreen() {
       >
         <Text style={styles.buttonText}>Export CSV</Text>
       </Pressable>
+
+      <View style={styles.divider} />
+
+      <Text style={styles.sectionLabel}>Analytics</Text>
+      <Text style={styles.explain}>
+        Share anonymous screen-view counts to help understand how this app is used. Off by
+        default. No entry content, dates, or other personal data are ever sent.
+      </Text>
+      <View style={styles.row}>
+        <Switch
+          testID="analytics-enabled"
+          value={analyticsEnabled}
+          onValueChange={onToggleAnalytics}
+        />
+        <Text style={styles.rowLabel}>Share anonymous usage analytics</Text>
+      </View>
 
       {Platform.OS !== 'web' && (
         <>

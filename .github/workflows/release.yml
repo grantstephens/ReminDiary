@@ -252,12 +252,20 @@ jobs:
           # levels (ContextCompat.registerReceiver()) - scoped to this app's
           # own package, unusable by any other app, invisible in Play
           # Store's permission listing.
-          PERMS=$(aapt dump permissions "$APK" | grep 'uses-permission' \
-            | grep -vc 'DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION' || true)
-          echo "declared permissions: $PERMS"
-          [ "$PERMS" -eq 0 ] || {
-            aapt dump permissions "$APK"
-            echo "::error::APK declares $PERMS permission(s); expected none"; exit 1; }
+          #
+          # INTERNET is the one permission this app is allowed to declare -
+          # it backs the opt-in, off-by-default Umami analytics toggle in
+          # Settings (see src/platform/analytics.*.ts). Checked by name, not
+          # just count, so a future dependency swapping in some other
+          # permission while still totalling one would not slip through.
+          PERM_LIST=$(aapt dump permissions "$APK" | grep 'uses-permission' \
+            | grep -v 'DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION' \
+            | sed -n "s/.*name='\([^']*\)'.*/\1/p" | sort)
+          echo "declared permissions:"
+          echo "$PERM_LIST"
+          [ "$PERM_LIST" = "android.permission.INTERNET" ] || {
+            echo "::error::declared permissions were [$PERM_LIST], expected only android.permission.INTERNET"
+            exit 1; }
 
           CODE=$(aapt dump badging "$APK" | sed -n "s/.*versionCode='\([0-9]*\)'.*/\1/p")
           [ "$CODE" = "${{ steps.version.outputs.code }}" ] || {

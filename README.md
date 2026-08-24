@@ -3,9 +3,10 @@
 A daily journal for Android and the web that shows you your own past. Write today's
 entry, save it, and the app surfaces what you wrote on this same date in previous years.
 
-Everything lives on your device. No account, no sync, no telemetry: ReminDiary contains
-no networking code whatsoever. Your entries are yours, and CSV export means they stay
-that way even if you stop using this.
+Everything lives on your device. No account, no sync. Your entries are yours, and CSV
+export means they stay that way even if you stop using this. The only networking this
+app does is an opt-in, off-by-default analytics toggle in Settings that shares anonymous
+screen-view counts — never entry content, dates, or anything else you've written.
 
 [![Licence: GPL v3](https://img.shields.io/badge/Licence-GPLv3-blue.svg)](LICENSE)
 [![Release](https://img.shields.io/github/v/release/grantstephens/ReminDiary?include_prereleases)](https://github.com/grantstephens/ReminDiary/releases)

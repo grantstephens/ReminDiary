@@ -1,17 +1,35 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import React from 'react';
 
-import App, { handleTabPress } from './App';
+import App, { handleStateChange, handleTabPress } from './App';
 import { today } from './domain/date';
 import type { UnsavedGuard } from './JournalContext';
 import { SqliteStore } from './storage/SqliteStore';
 import { openNodeSqlite } from './storage/nodeSqlite';
 
 jest.mock('./storage/openStore');
+jest.mock('./platform/analytics');
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { openStore } = require('./storage/openStore') as {
   openStore: jest.Mock;
 };
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { getAnalyticsEnabled, setAnalyticsEnabled, trackScreenView } = require(
+  './platform/analytics',
+) as {
+  getAnalyticsEnabled: jest.Mock;
+  setAnalyticsEnabled: jest.Mock;
+  trackScreenView: jest.Mock;
+};
+
+beforeEach(() => {
+  getAnalyticsEnabled.mockReset();
+  getAnalyticsEnabled.mockResolvedValue(false);
+  setAnalyticsEnabled.mockReset();
+  setAnalyticsEnabled.mockResolvedValue(undefined);
+  trackScreenView.mockReset();
+  trackScreenView.mockResolvedValue(undefined);
+});
 
 test('shows the three tabs once the store opens', async () => {
   openStore.mockResolvedValue(await SqliteStore.open(openNodeSqlite(':memory:')));
@@ -143,5 +161,38 @@ describe('handleTabPress', () => {
     await flush();
     expect(navigation.navigate).not.toHaveBeenCalled();
     expect(guard.current).toBe(check);
+  });
+});
+
+// Switching tabs is the one place a screen view happens in this app - there
+// is no URL-based routing to hook into instead, since it is a single-page
+// tab bar rather than a stack. Verified through the real navigator (not just
+// handleStateChange in isolation below) because this is the one path that
+// proves onStateChange is actually wired into NavigationContainer.
+test('switching tabs reports a screen view for the tab navigated to', async () => {
+  openStore.mockResolvedValue(await SqliteStore.open(openNodeSqlite(':memory:')));
+  await render(<App />);
+  await waitFor(() => expect(screen.getByTestId('tab-Write')).toBeTruthy());
+  // The initial route reports too, once the navigator is ready.
+  await waitFor(() => expect(trackScreenView).toHaveBeenCalledWith('Write'));
+
+  await act(async () => {
+    fireEvent.press(screen.getByTestId('tab-Settings'));
+  });
+  await waitFor(() => expect(trackScreenView).toHaveBeenCalledWith('Settings'));
+});
+
+// handleStateChange is unreachable inline (it lives in NavigationContainer's
+// onStateChange prop, which needs a mounted navigator to fire), so it is
+// exported and tested directly here too - same reasoning as handleTabPress.
+describe('handleStateChange', () => {
+  test('reports the currently focused route', () => {
+    handleStateChange({ index: 1, routes: [{ name: 'Write' }, { name: 'Memories' }] });
+    expect(trackScreenView).toHaveBeenCalledWith('Memories');
+  });
+
+  test('does nothing when state is not ready yet', () => {
+    handleStateChange(undefined);
+    expect(trackScreenView).not.toHaveBeenCalled();
   });
 });
