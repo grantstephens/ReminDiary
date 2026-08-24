@@ -33,7 +33,16 @@ export async function trackScreenView(screenName: string): Promise<void> {
         // fetch() always sends its own and forbids overriding it (see
         // analytics.web.ts) - React Native's fetch has no such restriction,
         // so this is set explicitly here only.
-        'User-Agent': 'ReminDiary (Android)',
+        //
+        // The exact shape matters, verified directly against the live
+        // endpoint: something in front of Umami on this host silently
+        // honeypots (200 OK, fake body, nothing recorded) any User-Agent
+        // that does not contain a three-part dotted version number - a bare
+        // "ReminDiary (Android)" and even "ReminDiary/1.0 (Android)" both
+        // get honeypotted, "ReminDiary/1.0.0 (Android)" does not. 1.0.0
+        // matches this app's actual version elsewhere in the repo
+        // (package.json, app.json) - not an arbitrary placeholder.
+        'User-Agent': 'ReminDiary/1.0.0 (Android)',
       },
       body: JSON.stringify(buildUmamiPayload(screenName, 'android')),
     });
