@@ -23,9 +23,7 @@ keeps them updated, with no app store in the middle.
 1. Install Obtainium.
 2. Tap **Add App**.
 3. Paste `https://github.com/grantstephens/ReminDiary`.
-4. Turn on **Include prereleases** — the current builds are betas, and without this
-   Obtainium will wait for a stable tag and find nothing.
-5. Tap **Add**, then **Install**.
+4. Tap **Add**, then **Install**.
 
 Obtainium will notify you when a new release is tagged.
 

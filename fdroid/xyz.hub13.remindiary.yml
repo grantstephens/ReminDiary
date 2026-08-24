@@ -22,23 +22,26 @@ Description: |-
   ReminDiary is an offline daily journal. Write today's entry and save it, and the
   app reveals what you wrote on this same calendar date in previous years.
 
-  Everything stays on your device. There is no account, no sync, and no networking
-  code of any kind — this build has zero Android permissions. Entries export to and
-  import from plain CSV, so your writing is never locked in.
+  Everything stays on your device. There is no account and no sync. Entries export to
+  and import from plain CSV, so your writing is never locked in. The only network
+  activity the app performs at all is a single opt-in, off-by-default analytics
+  toggle in Settings, which reports which screen you're on and nothing else - never
+  entry content, dates, or any other personal data. See the full privacy policy at
+  https://remindiary.hub13.xyz/privacy/ for exactly what that does and does not send.
 
   * One entry per calendar date
   * Automatic reveal of past entries on the same date in previous years
   * CSV export and import
   * Light and dark themes, following the system by default
-  * Ships with zero Android permissions
+  * A single Android permission (INTERNET), used only by the opt-in analytics toggle
 
 RepoType: git
 Repo: https://github.com/grantstephens/ReminDiary.git
 
 Builds:
-  - versionName: 1.0.0-beta.4
-    versionCode: 10000204
-    commit: v1.0.0-beta.4
+  - versionName: 1.0.0
+    versionCode: 10000999
+    commit: v1.0.0
     subdir: android
 
     # Setup phase — this is where network access is allowed. Mirrors the
@@ -85,8 +88,8 @@ Builds:
         node -e "
         const fs = require('fs');
         const config = JSON.parse(fs.readFileSync('../app.json', 'utf8'));
-        config.expo.version = '1.0.0-beta.4';
-        config.expo.android.versionCode = 10000204;
+        config.expo.version = '1.0.0';
+        config.expo.android.versionCode = 10000999;
         fs.writeFileSync('../app.json', JSON.stringify(config, null, 2) + '\n');
         "
       - cd .. && npx expo prebuild --platform android --no-install
@@ -138,5 +141,5 @@ Builds:
 # per-release chore, not a one-time submission cost — worth weighing.
 AutoUpdateMode: None
 UpdateCheckMode: Tags
-CurrentVersion: 1.0.0-beta.4
-CurrentVersionCode: 10000204
+CurrentVersion: 1.0.0
+CurrentVersionCode: 10000999
