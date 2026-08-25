@@ -40,7 +40,12 @@ Repo: https://github.com/grantstephens/ReminDiary.git
 Builds:
   - versionName: 1.0.0
     versionCode: 10000999
-    commit: v1.0.0
+    # Full commit hash, not the tag - a real reviewer comment on the MR
+    # asked for this: tags are mutable (can be force-moved to point
+    # somewhere else later), so pinning the actual SHA is what makes this
+    # build entry permanently reproducible. `git rev-parse v1.0.0^{commit}`
+    # against the real v1.0.0 tag.
+    commit: 748ae4395ec76f40e33de425d21f76f1cb6c8c20
 
     # No subdir. This is the fix for a real structural bug the first draft
     # had: fdroidserver's prepare_source() checks os.path.exists(root_dir)
@@ -53,21 +58,22 @@ Builds:
     # fdroiddata (com.mmazzarolo.breathly.yml), which uses this same
     # no-subdir + output: + custom build: shape for exactly this reason.
 
-    # Setup phase — network is allowed here. Node bootstrap matches this
-    # repo's own release.yml/mise.toml pin (v24.16.0), rather than the
-    # buildserver's system nodejs (Debian trixie ships 20.19.2), so the
-    # build uses the exact same Node version as every other release of
-    # this app. Checksum from nodejs.org's own SHASUMS256.txt.
-    #
-    # .tar.gz, not .tar.xz: confirmed by a real CI failure on the actual
-    # fdroiddata pipeline - the buildserver's Debian trixie image has no
-    # `xz` binary, so `tar xJf` fails with "Cannot exec: No such file or
-    # directory" even though the download and checksum both succeed. gzip
-    # is always available; nodejs.org publishes both formats.
+    # Setup phase — network is allowed here. A real reviewer comment on the
+    # MR asked for Node from Debian's own archive rather than a raw
+    # nodejs.org tarball+checksum: the buildserver's trixie only ships
+    # 20.19.2, but forky (the next Debian release) already packages 24.19.0
+    # - confirmed against the real Packages index at
+    # deb.debian.org/debian/dists/forky/main/binary-amd64/Packages.gz, not
+    # guessed. `-t forky` (not adding forky as the default suite) means only
+    # the packages explicitly named here get pulled from it; everything
+    # else still resolves from trixie as normal - the same pinning pattern
+    # already used elsewhere in this ecosystem (fdroidserver's own
+    # checkupdates.py trixie_blocklist, and older com.mmazzarolo.breathly.yml
+    # Builds entries `-t stretch-backports`).
     sudo:
-      - curl -Lo /tmp/node.tar.gz https://nodejs.org/dist/v24.16.0/node-v24.16.0-linux-x64.tar.gz
-      - echo "2faf6a387e9b62b888e21c54f01249fb27537ffecf1842f29f4c919d0a59a0ff  /tmp/node.tar.gz" | sha256sum -c -
-      - tar xzf /tmp/node.tar.gz --strip-components=1 -C /usr/local/
+      - echo "deb http://deb.debian.org/debian forky main" > /etc/apt/sources.list.d/forky.list
+      - apt-get update
+      - apt-get install -y -t forky nodejs npm
 
     # Still setup phase, still network-allowed. `npm ci` is the one real
     # unknown here — this is the exact step that decides whether Expo/RN
@@ -229,11 +235,11 @@ Builds:
   # version's APK.
   - versionName: 1.0.1
     versionCode: 10001999
-    commit: v1.0.1
+    commit: bc08c5b733dc12d3c1d9c3cd733b7dd141b17dd6
     sudo:
-      - curl -Lo /tmp/node.tar.gz https://nodejs.org/dist/v24.16.0/node-v24.16.0-linux-x64.tar.gz
-      - echo "2faf6a387e9b62b888e21c54f01249fb27537ffecf1842f29f4c919d0a59a0ff  /tmp/node.tar.gz" | sha256sum -c -
-      - tar xzf /tmp/node.tar.gz --strip-components=1 -C /usr/local/
+      - echo "deb http://deb.debian.org/debian forky main" > /etc/apt/sources.list.d/forky.list
+      - apt-get update
+      - apt-get install -y -t forky nodejs npm
     init:
       - export CI=1
       - export EXPO_NO_TELEMETRY=1
