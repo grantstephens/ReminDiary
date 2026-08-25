@@ -223,32 +223,26 @@ Builds:
 #
 # The real fix - not just avoiding the failure - is UpdateCheckData
 # pointed at fdroid-version.txt, a small file this repo's own
-# `make prepare-release` (see README.md "Releasing") now writes and
-# commits before every tag, containing the exact versionCode ReminDiary's
-# own release.yml computes (tools/compute-version.sh is the single source
-# of truth both share). The pattern below is verified against
-# fdroidserver's actual check_tags() source and tested end-to-end against
-# a real committed fdroid-version.txt: filever "." means "reuse the same
-# file's content for the versionName regex too" (the exact pattern
+# `make prepare-release` (see README.md "Releasing") writes and commits
+# before every tag, containing the exact versionCode ReminDiary's own
+# release.yml computes (tools/compute-version.sh is the single source of
+# truth both share). The pattern below is verified against fdroidserver's
+# actual check_tags() source and tested end-to-end against a real
+# committed fdroid-version.txt: filever "." means "reuse the same file's
+# content for the versionName regex too" (the exact pattern
 # com.mmazzarolo.breathly.yml uses against app.json), not "match the tag
 # text" - confirmed by reading checkupdates.py directly rather than
-# guessing:
-#   UpdateCheckData: fdroid-version.txt|versionCode=([0-9]+)|.|versionName=(.+)
+# guessing. v1.0.1 (github.com/grantstephens/ReminDiary/releases/tag/v1.0.1)
+# is the first real tag that carries the file, and Tags mode below is
+# confirmed working against it on this branch's own CI, not assumed.
 #
-# Staying on Static for now regardless: checkupdates only looks at the 5
-# most recent tags, and none of the tags that exist today
-# (v1.0.0-beta.1..v1.0.0) carry fdroid-version.txt - tags are immutable,
-# so switching to Tags before a new release actually ships one would just
-# reintroduce the exact failure this comment describes. Switch to Tags
-# with the UpdateCheckData line above once `make prepare-release` has
-# been used for a real tag.
-#
-# AutoUpdateMode stays None regardless of the above: this recipe's
-# prebuild: scripts hardcode versionName/versionCode as literal values
-# inside the embedded JS patch (see prebuild: above), so even a correctly
-# auto-detected new version can't safely auto-generate a working Builds:
-# entry - every new release still needs one added by hand.
+# AutoUpdateMode stays None: this recipe's prebuild: scripts hardcode
+# versionName/versionCode as literal values inside the embedded JS patch
+# (see prebuild: above), so even a correctly auto-detected new version
+# can't safely auto-generate a working Builds: entry - every new release
+# still needs one added by hand.
 AutoUpdateMode: None
-UpdateCheckMode: Static
-CurrentVersion: 1.0.0
-CurrentVersionCode: 10000999
+UpdateCheckMode: Tags
+UpdateCheckData: fdroid-version.txt|versionCode=([0-9]+)|.|versionName=(.+)
+CurrentVersion: 1.0.1
+CurrentVersionCode: 10001999
