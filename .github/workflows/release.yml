@@ -66,48 +66,22 @@ jobs:
           BUILD_TOOLS=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
           echo "$BUILD_TOOLS" >> "$GITHUB_PATH"
 
-      # versionCode is a packed integer, not just the tag, because Android
-      # requires it to strictly increase between installs and a plain
-      # per-release counter would not survive a repo move or a skipped tag:
-      #
-      #     major*10000000 + minor*100000 + patch*1000 + stage*100 + n
-      #
-      # with stage ranked alpha=1, beta=2, rc=3, final=9 (and n=99 for final),
-      # so 1.0.0-alpha.1 < -beta.1 < -beta.2 < -rc.1 < 1.0.0 < 1.0.1-beta.1.
-      # Deriving it from the tag rather than the run number keeps it
-      # reproducible: rebuilding a tag yields the same versionCode.
+      # versionCode is a packed integer, not just the tag - see
+      # tools/compute-version.sh for the scheme and why. That script is the
+      # single source of truth for this arithmetic, shared with
+      # `make prepare-release`, which commits its output into
+      # fdroid-version.txt before tagging so F-Droid's checkupdates can read
+      # a real versionCode without needing arithmetic of its own.
       - name: Derive version
         id: version
         run: |
           set -euo pipefail
           TAG="${{ github.event.inputs.tag || github.ref_name }}"
-          VERSION="${TAG#v}"
-          CORE="${VERSION%%-*}"
-          SUFFIX="${VERSION#"$CORE"}"
-          IFS=. read -r MAJOR MINOR PATCH <<EOF
-          $CORE
-          EOF
-          MAJOR=${MAJOR:-0}; MINOR=${MINOR:-0}; PATCH=${PATCH:-0}
-          NUM=$(printf '%s' "$SUFFIX" | grep -oE '[0-9]+$' || true)
-          NUM=${NUM:-0}
-          case "$SUFFIX" in
-            '')       STAGE=9; NUM=99 ;;
-            -alpha*)  STAGE=1 ;;
-            -beta*)   STAGE=2 ;;
-            -rc*)     STAGE=3 ;;
-            *) echo "::error::unrecognised pre-release suffix '$SUFFIX' in $TAG (expected -alpha/-beta/-rc)"; exit 1 ;;
-          esac
-          PRE=$((STAGE * 100 + NUM))
-          for n in "$MAJOR" "$MINOR" "$PATCH" "$NUM"; do
-            case "$n" in *[!0-9]*|'') echo "::error::bad version component in $TAG"; exit 1;; esac
-          done
-          [ "$MINOR" -le 99 ] && [ "$PATCH" -le 99 ] && [ "$NUM" -le 99 ] || {
-            echo "::error::version component out of range for versionCode packing: $TAG"; exit 1; }
-          CODE=$((MAJOR * 10000000 + MINOR * 100000 + PATCH * 1000 + PRE))
-          echo "tag=$TAG"      >> "$GITHUB_OUTPUT"
-          echo "name=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "code=$CODE"    >> "$GITHUB_OUTPUT"
-          echo "Building $TAG as versionName=$VERSION versionCode=$CODE"
+          eval "$(tools/compute-version.sh "$TAG")"
+          echo "tag=$TAG"           >> "$GITHUB_OUTPUT"
+          echo "name=$versionName"  >> "$GITHUB_OUTPUT"
+          echo "code=$versionCode"  >> "$GITHUB_OUTPUT"
+          echo "Building $TAG as versionName=$versionName versionCode=$versionCode"
 
       # expo prebuild bakes app.json's version/android.versionCode straight
       # into the generated build.gradle and AndroidManifest.xml, so this is

@@ -106,8 +106,19 @@ why it is tested in a plain Node environment.
 Pushing a `v*` tag (e.g. `v1.0.0-beta.5`) triggers
 [`.github/workflows/release.yml`](.github/workflows/release.yml), which builds a signed
 APK and AAB and attaches them to a GitHub Release. `versionCode` is packed from the tag
-itself (see the workflow for the exact scheme), so rebuilding a tag always reproduces the
-same value.
+itself (see [`tools/compute-version.sh`](tools/compute-version.sh) for the exact scheme),
+so rebuilding a tag always reproduces the same value.
+
+Before tagging, run `make prepare-release TAG=v1.0.1` — it computes the version and
+commits it into `fdroid-version.txt`, so F-Droid's `checkupdates` (which can't do the
+packing arithmetic itself) has a real, regex-extractable versionCode to read at that
+tag. Then tag and push as the command's own output says:
+
+```bash
+make prepare-release TAG=v1.0.1
+git tag v1.0.1
+git push origin main v1.0.1
+```
 
 #### Signing setup
 

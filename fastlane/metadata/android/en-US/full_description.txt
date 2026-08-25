@@ -1,0 +1,9 @@
+ReminDiary is an offline daily journal. Write today's entry and save it, and the app reveals what you wrote on this same calendar date in previous years.
+
+Everything stays on your device. There is no account and no sync. Entries export to and import from plain CSV, so your writing is never locked in. The only network activity the app performs at all is a single opt-in, off-by-default analytics toggle in Settings, which reports which screen you're on and nothing else - never entry content, dates, or any other personal data. See the full privacy policy at https://remindiary.hub13.xyz/privacy/ for exactly what that does and does not send.
+
+* One entry per calendar date
+* Automatic reveal of past entries on the same date in previous years
+* CSV export and import
+* Light and dark themes, following the system by default
+* A single Android permission (INTERNET), used only by the opt-in analytics toggle
