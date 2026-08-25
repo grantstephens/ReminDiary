@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import React from 'react';
 
-import { Platform, Text } from 'react-native';
+import { Linking, Platform, Text } from 'react-native';
 
 import { JournalProvider, useJournal } from '../JournalContext';
 import { ThemeProvider } from '../ThemeContext';
@@ -197,6 +197,16 @@ describe('data section', () => {
     // import leaves Write, Memories and Stats showing stale data on a device,
     // which no amount of testing THIS screen alone would reveal.
     expect(screen.getByTestId('revision').props.children).toBe('1');
+  });
+
+  test('the CSV format link opens the import help page', async () => {
+    const openURL = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
+    await renderSettings();
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('data-import-help'));
+    });
+    expect(openURL).toHaveBeenCalledWith('https://remindiary.hub13.xyz/import/');
+    openURL.mockRestore();
   });
 
   // A cancelled picker is not an error and must produce no dialog at all.

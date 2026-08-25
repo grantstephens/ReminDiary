@@ -1,5 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import {
+  Linking,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  View,
+} from 'react-native';
 
 import { useJournal } from '../JournalContext';
 import { displayDate, today } from '../domain/date';
@@ -100,6 +109,12 @@ export function SettingsScreen() {
     };
   }, [store, now, revision]);
 
+  const openImportHelp = () => {
+    Linking.openURL('https://remindiary.hub13.xyz/import/').catch((err: unknown) => {
+      void notify('Could not open the help page', (err as Error).message);
+    });
+  };
+
   const runImport = async () => {
     // Overwrite is the one setting that can destroy data, so it is confirmed
     // before the picker rather than after, when the user still has context.
@@ -158,6 +173,10 @@ export function SettingsScreen() {
         Import merges a CSV into your journal. Dates you already have are skipped unless you
         tick overwrite. Export writes every entry to a CSV file.
       </Text>
+
+      <Pressable testID="data-import-help" onPress={openImportHelp}>
+        <Text style={styles.link}>CSV format & example</Text>
+      </Pressable>
 
       <View style={styles.row}>
         <Switch testID="data-overwrite" value={overwrite} onValueChange={setOverwrite} />
@@ -234,6 +253,7 @@ function createStyles(theme: Theme) {
     statsLine: { fontSize: 16, marginBottom: 10, color: theme.text },
     divider: { height: 1, backgroundColor: theme.border, marginVertical: 20 },
     explain: { fontSize: 15, marginBottom: 20, color: theme.text },
+    link: { fontSize: 14, marginTop: -12, marginBottom: 20, color: theme.accent },
     row: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
     rowLabel: { marginLeft: 10, fontSize: 15, color: theme.text },
     button: {

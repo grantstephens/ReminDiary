@@ -1,5 +1,6 @@
 # Journal data. These are real diary entries — never commit them.
 *.csv
+!site/import/example.csv
 *.db
 
 # Signing keys. Losing these means never being able to update the app on

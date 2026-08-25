@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CSV Import — ReminDiary</title>
+<meta name="description" content="The exact CSV format ReminDiary imports, with a downloadable example file.">
+<style>
+  :root {
+    --bg: #ffffff;
+    --surface: #f2f2f2;
+    --text: #1c1c1e;
+    --text-muted: #6e6e73;
+    --accent: #0a84ff;
+    --border: #d1d1d6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #121212;
+      --surface: #1e1e1e;
+      --text: #e5e5e7;
+      --text-muted: #9b9ba1;
+      --accent: #0a84ff;
+      --border: #2c2c2e;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.6;
+  }
+  a { color: var(--accent); }
+  main {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 56px 24px 80px;
+  }
+  header { margin-bottom: 40px; }
+  header a.back {
+    display: inline-block;
+    margin-bottom: 24px;
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    text-decoration: none;
+  }
+  h1 { margin: 0 0 8px; letter-spacing: -0.02em; }
+  .lede { color: var(--text-muted); font-size: 1rem; margin: 0; }
+  h2 { font-size: 1.15rem; margin: 40px 0 12px; }
+  ul, ol { padding-left: 1.2em; }
+  li { margin-bottom: 8px; }
+  code {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-size: 0.9em;
+  }
+  pre {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+    overflow-x: auto;
+    font-size: 0.85rem;
+    line-height: 1.5;
+  }
+  pre code { background: none; border: none; padding: 0; }
+  .download {
+    display: inline-block;
+    margin-top: 8px;
+    padding: 12px 20px;
+    border-radius: 8px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--accent);
+    font-weight: 600;
+    text-decoration: none;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    font-size: 0.9rem;
+  }
+  th, td {
+    text-align: left;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  th { color: var(--text-muted); font-weight: 600; }
+  .note {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+    margin: 16px 0;
+    font-size: 0.95rem;
+  }
+  footer {
+    margin-top: 56px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: 0.9rem;
+  }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <a class="back" href="/">&larr; ReminDiary</a>
+    <h1>CSV Import</h1>
+    <p class="lede">The exact file format Settings &rarr; Import CSV expects, with a ready-to-edit example.</p>
+  </header>
+
+  <a class="download" href="/import/example.csv" download>Download example.csv</a>
+
+  <h2>The format</h2>
+  <p>A plain CSV file with a header row, then one row per journal entry:</p>
+  <pre><code>date,body,created,updated</code></pre>
+
+  <table>
+    <tr><th>Column</th><th>Format</th></tr>
+    <tr>
+      <td><code>date</code></td>
+      <td><code>YYYY-MM-DD</code>, zero-padded (e.g. <code>2024-01-05</code>, not <code>2024-1-5</code>).
+        One row per date — a second row for a date you've already used gets skipped unless you
+        turn on "Overwrite existing entries" in Settings first.</td>
+    </tr>
+    <tr>
+      <td><code>body</code></td>
+      <td>Your entry text. Wrap it in double quotes if it contains a comma, a line break, or a
+        quote mark — and if it contains a quote mark, write that one quote as two
+        (<code>""</code>). See the example file below for both cases.</td>
+    </tr>
+    <tr>
+      <td><code>created</code>, <code>updated</code></td>
+      <td>UTC timestamps, RFC 3339, no fractional seconds — <code>2024-01-05T20:30:00Z</code>.
+        If you don't know the exact time you wrote something, any time on the right date is
+        fine; the app only ever displays the date, not the time.</td>
+    </tr>
+  </table>
+
+  <div class="note">
+    Import is all-or-nothing: the whole file is checked first, and nothing is written unless
+    it's valid. Rows that fail validation are reported individually (with the row number, same
+    as your spreadsheet shows) rather than aborting the rest of the import.
+  </div>
+
+  <h2>Example</h2>
+  <p>
+    Three rows: a plain entry, one with a comma in the text, and one with a quoted phrase
+    inside the text — the two cases the quoting rule above covers.
+  </p>
+  <pre><code>date,body,created,updated
+2024-01-15,First day of the new job. Nervous but excited.,2024-01-15T20:30:00Z,2024-01-15T20:30:00Z
+2024-01-16,"Coffee, then a long walk. Simple day, good day.",2024-01-16T21:00:00Z,2024-01-16T21:00:00Z
+2024-01-17,"Rain all day. Stayed in and read. Quote of the day: ""Every day is a good day.""",2024-01-17T19:45:00Z,2024-01-17T19:45:00Z</code></pre>
+
+  <h2>Where a file like this comes from</h2>
+  <ol>
+    <li>Settings &rarr; Export CSV in ReminDiary itself produces a file in exactly this format —
+      the easiest way to see it for real is to write one entry and export.</li>
+    <li>A spreadsheet: put these four column headers in row 1, one entry per row below, then
+      save as CSV (not <code>.xlsx</code>).</li>
+    <li>Another journaling app's export, reshaped into these four columns.</li>
+  </ol>
+
+  <footer>
+    Questions: open an issue on
+    <a href="https://github.com/grantstephens/ReminDiary/issues">GitHub</a>.
+  </footer>
+</main>
+</body>
+</html>
