@@ -13,6 +13,12 @@ screen-view counts — never entry content, dates, or anything else you've writt
 
 Built with [React Native](https://reactnative.dev) (Expo), targeting Android and the web.
 
+<p>
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/1-write.png" width="200" alt="Write screen with a composed entry">
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/2-memories.png" width="200" alt="Memories screen showing entries from the same date in past years">
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/3-settings.png" width="200" alt="Settings screen with stats and the opt-in analytics toggle">
+</p>
+
 ## Installing
 
 ### With Obtainium (recommended)

@@ -1,0 +1,3 @@
+No app changes. Release infrastructure and F-Droid packaging work only:
+readme screenshots, Fastlane metadata, and a real release-versioning
+file for F-Droid's auto-updater.
