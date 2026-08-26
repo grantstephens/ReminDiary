@@ -15,22 +15,17 @@ IssueTracker: https://github.com/grantstephens/ReminDiary/issues
 Changelog: https://github.com/grantstephens/ReminDiary/releases
 
 AutoName: ReminDiary
-Description: |-
-  ReminDiary is an offline daily journal. Write today's entry and save it, and the
-  app reveals what you wrote on this same calendar date in previous years.
 
-  Everything stays on your device. There is no account and no sync. Entries export to
-  and import from plain CSV, so your writing is never locked in. The only network
-  activity the app performs at all is a single opt-in, off-by-default analytics
-  toggle in Settings, which reports which screen you're on and nothing else - never
-  entry content, dates, or any other personal data. See the full privacy policy at
-  https://remindiary.hub13.xyz/privacy/ for exactly what that does and does not send.
-
-  * One entry per calendar date
-  * Automatic reveal of past entries on the same date in previous years
-  * CSV export and import
-  * Light and dark themes, following the system by default
-  * A single Android permission (INTERNET), used only by the opt-in analytics toggle
+# No inline Description: field - three rounds of the same reviewer comment
+# ("Don't add summary and description... Add them in fastlane structure in
+# your repo and they will be pulled from there") turned out to be about
+# this field specifically, not the metadata/<id>/<locale>/ directory
+# removed earlier (confirmed via the comment's exact diff position once
+# they anchored it to a line). Not schema-required (checked schemas/
+# metadata.json's required list) - fdroidserver already pulls the
+# equivalent text from fastlane/metadata/android/en-US/full_description.txt
+# in the app's own repo at build/update time, confirmed by the codequality
+# report still showing it found there with this field gone.
 
 RepoType: git
 Repo: https://github.com/grantstephens/ReminDiary.git
@@ -98,8 +93,20 @@ Builds:
       # assumed. versionCode has no existing field to substitute, so it's
       # inserted via `a\` anchored on the package name - tested locally
       # against the real app.json before pushing, produces valid JSON.
-      - "sed -i 's/\"version\": \"1.0.0\"/\"version\": \"1.0.0\"/' app.json"
-      - "sed -i '/\"package\": \"xyz.hub13.remindiary\"/a\\    \"versionCode\": 10000999,'
+      #
+      # $$VERSION$$/$$VERCODE$$ (not the literal values) after a reviewer
+      # asked "What's this for?" on the hardcoded version - these are real
+      # fdroidserver placeholders (common.py's replace_build_vars()),
+      # substituted into prebuild: at build time from this exact Builds
+      # entry's own versionName/versionCode fields. Using them instead of
+      # literals makes both Builds entries' prebuild: byte-identical,
+      # which is what finally makes AutoUpdateMode: Version below safe:
+      # its auto-clone only ever rewrites the top-level versionCode/
+      # versionName/commit on a copied entry, never literals buried inside
+      # embedded scripts - previously a hard blocker, now moot because
+      # there are no such literals left to go stale.
+      - "sed -i 's/\"version\": \"1.0.0\"/\"version\": \"$$VERSION$$\"/' app.json"
+      - "sed -i '/\"package\": \"xyz.hub13.remindiary\"/a\\    \"versionCode\": $$VERCODE$$,'
         app.json"
       # Forces Expo's autolinking to build every native module from
       # source rather than pulling each expo-*/react-native-* package's
@@ -228,8 +235,8 @@ Builds:
     prebuild:
       - export CI=1
       - export EXPO_NO_TELEMETRY=1
-      - "sed -i 's/\"version\": \"1.0.0\"/\"version\": \"1.0.1\"/' app.json"
-      - "sed -i '/\"package\": \"xyz.hub13.remindiary\"/a\\    \"versionCode\": 10001999,'
+      - "sed -i 's/\"version\": \"1.0.0\"/\"version\": \"$$VERSION$$\"/' app.json"
+      - "sed -i '/\"package\": \"xyz.hub13.remindiary\"/a\\    \"versionCode\": $$VERCODE$$,'
         app.json"
       - sed -i -e '1a "expo":{"autolinking":{"android":{"buildFromSource":[".*"]}}},' package.json
       - npx expo prebuild --platform android --no-install
@@ -272,12 +279,18 @@ Builds:
 # is the first real tag that carries the file, and Tags mode below is
 # confirmed working against it on this branch's own CI, not assumed.
 #
-# AutoUpdateMode stays None: this recipe's prebuild: scripts hardcode
-# versionName/versionCode as literal values inside the embedded JS patch
-# (see prebuild: above), so even a correctly auto-detected new version
-# can't safely auto-generate a working Builds: entry - every new release
-# still needs one added by hand.
-AutoUpdateMode: None
+# AutoUpdateMode: Version - safe now that prebuild: uses $$VERSION$$/
+# $$VERCODE$$ instead of hardcoded literals (see prebuild: above), so a
+# checkupdates --auto clone of the last Builds entry needs only its own
+# top-level versionCode/versionName/commit updated, which is exactly what
+# that mechanism does. UpdateCheckMode: Tags means the auto-generated
+# entry's commit resolves through a real tag lookup (vcs.getref()) to an
+# actual SHA, not the tag name, satisfying the earlier full-commit-hash
+# requirement automatically for future releases too. Previously this
+# stayed None because the version patch hardcoded literals that couldn't
+# safely be auto-generated - resolved by removing the literals, not by
+# arguing they were unavoidable.
+AutoUpdateMode: Version
 UpdateCheckMode: Tags
 UpdateCheckData: fdroid-version.txt|versionCode=([0-9]+)|.|versionName=(.+)
 CurrentVersion: 1.0.1
