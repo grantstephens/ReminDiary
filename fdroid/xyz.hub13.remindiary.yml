@@ -59,9 +59,17 @@ Builds:
     prebuild:
       - export CI=1
       - export EXPO_NO_TELEMETRY=1
-      - "sed -i 's/\"version\": \"1.0.0\"/\"version\": \"$$VERSION$$\"/' app.json"
-      - "sed -i '/\"package\": \"xyz.hub13.remindiary\"/a\\    \"versionCode\": $$VERCODE$$,'
-        app.json"
+      # Combines what used to be two separate sed invocations into one,
+      # per a reviewer suggestion - anchored on the generic "android": {
+      # structure rather than this app's own package name, so it isn't
+      # tied to a single app.json. $$VERSION$$/$$VERCODE$$ are real
+      # fdroidserver placeholders (common.py's replace_build_vars()),
+      # substituted at build time from this Builds entry's own top-level
+      # fields - which is what makes AutoUpdateMode: Version below safe.
+      # Verified locally against the real app.json before pushing: only
+      # one "version" match in this file, so the broader pattern is safe.
+      - sed -i -e '/"version"/s/1.0.0/$$VERSION$$/' -e '/"android":\ {/a "versionCode":$$VERCODE$$,'
+        app.json
       - sed -i -e '1a "expo":{"autolinking":{"android":{"buildFromSource":[".*"]}}},' package.json
       - npx expo prebuild --platform android --no-install
       - sed -i '/jvmToolchain\|JavaVersion/s/17/21/' node_modules/@react-native/gradle-plugin/*/build.gradle.kts node_modules/@react-native/gradle-plugin/react-native-gradle-plugin/src/main/kotlin/com/facebook/react/utils/JdkConfiguratorUtils.kt
