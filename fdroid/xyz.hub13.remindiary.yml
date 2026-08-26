@@ -152,31 +152,13 @@ Builds:
       - cd android/app
       - gradle assembleRelease
 
-    # Confirmed by running the real scanner (`fdroid build`, not a guess):
-    # everything below is iOS-only, Windows/macOS-only, or web-only, so it
-    # can never be reached by an Android gradle build regardless of the
-    # buildFromSource autolinking patch above. Deleted outright rather than
-    # scanignore'd, since there is zero risk of the Android build needing
-    # any of it.
-    rm:
-      # Apple/iOS-only build tool and framework output - `.xcframework`,
-      # `.lproj` (Apple bundle i18n convention), and the `apple/` build tool
-      # subdirectory are all Apple-platform-specific by construction.
-      - node_modules/@expo/expo-modules-macros-plugin/apple/
-      - node_modules/expo-sqlite/ios/
-      - node_modules/expo-file-system/prebuilds/
-      - node_modules/expo-font/prebuilds/
-      - node_modules/expo-modules-core/prebuilds/
-      - node_modules/react-native/React/I18n/strings/
-      # Web-only WASM build of SQLite - this app never runs expo-sqlite's
-      # web target on Android.
-      - node_modules/expo-sqlite/web/
-      # dotslash is a cross-platform binary-fetching tool; every prebuilt
-      # binary it ships is for a host platform (macOS, Windows, musl-libc
-      # Linux) other than this glibc Linux buildserver.
-      - node_modules/fb-dotslash/bin/
-      # An unrelated packaged template archive, not part of the build.
-      - node_modules/expo/template.tgz
+    # A reviewer suggestion (applied and merged, then mirrored onto the
+    # v1.0.1 entry below for consistency) removed the rm: block that used
+    # to sit here, deleting iOS/web/macOS-only build output up front. Now
+    # that scandelete is the broad node_modules/ catch-all (see below),
+    # it's redundant - anything the scanner would flag in those paths gets
+    # silently deleted at scan time anyway, and nothing in them was ever
+    # reachable by the Android gradle build regardless.
 
     # scanignore protects exactly the files confirmed necessary for the
     # build to succeed - each one earned its place through a real CI
@@ -259,16 +241,6 @@ Builds:
     build:
       - cd android/app
       - gradle assembleRelease
-    rm:
-      - node_modules/@expo/expo-modules-macros-plugin/apple/
-      - node_modules/expo-sqlite/ios/
-      - node_modules/expo-file-system/prebuilds/
-      - node_modules/expo-font/prebuilds/
-      - node_modules/expo-modules-core/prebuilds/
-      - node_modules/react-native/React/I18n/strings/
-      - node_modules/expo-sqlite/web/
-      - node_modules/fb-dotslash/bin/
-      - node_modules/expo/template.tgz
     scanignore:
       - node_modules/hermes-compiler/hermesc/linux64-bin/hermesc
       - node_modules/expo-sqlite/android/vec/
