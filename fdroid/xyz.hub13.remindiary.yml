@@ -88,15 +88,19 @@ Builds:
     prebuild:
       - export CI=1
       - export EXPO_NO_TELEMETRY=1
-      # Mirrors release.yml's "Set app.json version" step.
-      - |-
-        node -e "
-        const fs = require('fs');
-        const config = JSON.parse(fs.readFileSync('app.json', 'utf8'));
-        config.expo.version = '1.0.0';
-        config.expo.android.versionCode = 10000999;
-        fs.writeFileSync('app.json', JSON.stringify(config, null, 2) + '\n');
-        "
+      # Mirrors release.yml's "Set app.json version" step - originally a
+      # node -e JSON.parse/stringify script, replaced with sed after a
+      # reviewer comment objected to inline scripts. Safe because app.json's
+      # version is never bumped in git (release.yml patches it transiently
+      # at CI build time only, never committing) - confirmed both the
+      # v1.0.0 and v1.0.1 tagged commits genuinely have "version": "1.0.0"
+      # literally in app.json by checking out both tags directly, not
+      # assumed. versionCode has no existing field to substitute, so it's
+      # inserted via `a\` anchored on the package name - tested locally
+      # against the real app.json before pushing, produces valid JSON.
+      - "sed -i 's/\"version\": \"1.0.0\"/\"version\": \"1.0.0\"/' app.json"
+      - "sed -i '/\"package\": \"xyz.hub13.remindiary\"/a\\    \"versionCode\": 10000999,'
+        app.json"
       # Forces Expo's autolinking to build every native module from
       # source rather than pulling each expo-*/react-native-* package's
       # prebuilt AAR - the same trick com.mmazzarolo.breathly.yml uses,
@@ -122,17 +126,18 @@ Builds:
       - sed -i '/jvmToolchain\|JavaVersion/s/17/21/' node_modules/@react-native/gradle-plugin/*/build.gradle.kts node_modules/@react-native/gradle-plugin/react-native-gradle-plugin/src/main/kotlin/com/facebook/react/utils/JdkConfiguratorUtils.kt
       # Removes the debug-keystore signingConfig line from the release
       # build type, so assembleRelease emits an unsigned APK for F-Droid
-      # to sign with its own key - anchored on the exact text release.yml
-      # already asserts on for its own (different) signing patch, so a
-      # future Expo template change breaks this loudly instead of
-      # silently shipping a debug-signed "release" APK.
-      - python3 -c "path = 'android/app/build.gradle'; f = open(path); content = f.read();
-        f.close(); anchor = '            // Caution! In production, you need to generate
-        your own keystore file.\n            // see https://reactnative.dev/docs/signed-apk-android.\n            signingConfig
-        signingConfigs.debug'; line = '\n            signingConfig signingConfigs.debug';
-        assert content.count(anchor) == 1, 'signingConfig anchor not found verbatim'; stripped
-        = anchor.replace(line, ''); content = content.replace(anchor, stripped, 1); f =
-        open(path, 'w'); f.write(content); f.close()"
+      # to sign with its own key. Originally a python3 -c script anchored
+      # on the exact surrounding text with an assertion; replaced with the
+      # same blunt sed templates/build-react-native.yml and the real,
+      # already-merged com.mmazzarolo.breathly.yml both use, after a
+      # reviewer comment objected to inline scripts. Verified against a
+      # real locally-generated build.gradle before pushing: this app's
+      # generated file has exactly two lines matching `signingConfig `
+      # (with the trailing space) - one in the release build type (the one
+      # that matters) and one in the unused debug build type this recipe
+      # never builds, which Android Gradle Plugin signs with its own
+      # built-in default regardless of losing this explicit reference.
+      - sed -i -e '/signingConfig /d' android/app/build.gradle
       # Headroom for the gradle daemon during a real Hermes/AGP build -
       # com.mmazzarolo.breathly.yml carries the same line for the same
       # buildserver.
@@ -163,22 +168,26 @@ Builds:
     # scanignore protects exactly the files confirmed necessary for the
     # build to succeed - each one earned its place through a real CI
     # failure, not a guess: hermesc/linux64-bin is the Hermes compiler this
-    # Linux buildserver actually needs; expo-sqlite's vec/ and libsql/ are
-    # real native .so libraries; the four build.gradle/ExpoModulesCore
-    # Plugin.gradle files are needed for Gradle to resolve those modules as
-    # projects at all - deleting react-native-safe-area-context's
-    # build.gradle (it gets flagged for an unrecognized maven repo,
-    # unrelated to autolinking) broke exactly that way in a real pipeline
-    # run. Everything else - the local-maven-repo directories expo-
-    # modules-autolinking publishes per module regardless of
-    # buildFromSource - falls through to scandelete's broad node_modules/,
-    # confirmed by a real successful build+scan+APK-size-unchanged result:
-    # those prebuilt AAR/JAR artifacts really are unused once the app is
-    # built from source, not merely unscanned.
+    # Linux buildserver actually needs; the four build.gradle/ExpoModules
+    # CorePlugin.gradle files are needed for Gradle to resolve those
+    # modules as projects at all - deleting react-native-safe-area-
+    # context's build.gradle (it gets flagged for an unrecognized maven
+    # repo, unrelated to autolinking) broke exactly that way in a real
+    # pipeline run. expo-sqlite's vec/ and libsql/ prebuilt .so libraries
+    # used to be protected here too, on the assumption they were needed -
+    # a reviewer comment ("These libs need to be built") prompted actually
+    # checking expo-sqlite's own build.gradle: both directories are only
+    # ever referenced behind expo.sqlite.withSQLiteVecExtension /
+    # expo.sqlite.useLibSQL gradle properties this app never sets, so
+    # they're genuinely dead weight and now fall through like everything
+    # else. Everything unprotected - including the local-maven-repo
+    # directories expo-modules-autolinking publishes per module regardless
+    # of buildFromSource - falls through to scandelete's broad
+    # node_modules/, confirmed by a real successful build+scan+APK-size-
+    # unchanged result: those prebuilt AAR/JAR artifacts really are unused
+    # once the app is built from source, not merely unscanned.
     scanignore:
       - node_modules/hermes-compiler/hermesc/linux64-bin/hermesc
-      - node_modules/expo-sqlite/android/vec/
-      - node_modules/expo-sqlite/android/libsql/
       - node_modules/react-native-screens/android/build.gradle
       - node_modules/react-native-safe-area-context/android/build.gradle
       - node_modules/expo-modules-core/android/ExpoModulesCorePlugin.gradle
@@ -219,32 +228,19 @@ Builds:
     prebuild:
       - export CI=1
       - export EXPO_NO_TELEMETRY=1
-      - |-
-        node -e "
-        const fs = require('fs');
-        const config = JSON.parse(fs.readFileSync('app.json', 'utf8'));
-        config.expo.version = '1.0.1';
-        config.expo.android.versionCode = 10001999;
-        fs.writeFileSync('app.json', JSON.stringify(config, null, 2) + '\n');
-        "
+      - "sed -i 's/\"version\": \"1.0.0\"/\"version\": \"1.0.1\"/' app.json"
+      - "sed -i '/\"package\": \"xyz.hub13.remindiary\"/a\\    \"versionCode\": 10001999,'
+        app.json"
       - sed -i -e '1a "expo":{"autolinking":{"android":{"buildFromSource":[".*"]}}},' package.json
       - npx expo prebuild --platform android --no-install
       - sed -i '/jvmToolchain\|JavaVersion/s/17/21/' node_modules/@react-native/gradle-plugin/*/build.gradle.kts node_modules/@react-native/gradle-plugin/react-native-gradle-plugin/src/main/kotlin/com/facebook/react/utils/JdkConfiguratorUtils.kt
-      - python3 -c "path = 'android/app/build.gradle'; f = open(path); content = f.read();
-        f.close(); anchor = '            // Caution! In production, you need to generate
-        your own keystore file.\n            // see https://reactnative.dev/docs/signed-apk-android.\n            signingConfig
-        signingConfigs.debug'; line = '\n            signingConfig signingConfigs.debug';
-        assert content.count(anchor) == 1, 'signingConfig anchor not found verbatim'; stripped
-        = anchor.replace(line, ''); content = content.replace(anchor, stripped, 1); f =
-        open(path, 'w'); f.write(content); f.close()"
+      - sed -i -e '/signingConfig /d' android/app/build.gradle
       - printf '\norg.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=2g\n' >> android/gradle.properties
     build:
       - cd android/app
       - gradle assembleRelease
     scanignore:
       - node_modules/hermes-compiler/hermesc/linux64-bin/hermesc
-      - node_modules/expo-sqlite/android/vec/
-      - node_modules/expo-sqlite/android/libsql/
       - node_modules/react-native-screens/android/build.gradle
       - node_modules/react-native-safe-area-context/android/build.gradle
       - node_modules/expo-modules-core/android/ExpoModulesCorePlugin.gradle
