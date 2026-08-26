@@ -1,13 +1,11 @@
-# DRAFT — not yet submitted to fdroiddata.
-#
-# This is a working copy of the recipe that would eventually be copied into
-# a checkout of https://gitlab.com/fdroid/fdroiddata as
-# metadata/xyz.hub13.remindiary.yml for the inclusion merge request. It has
-# NOT been run against F-Droid's actual isolated buildserver yet — every
-# block marked VERIFY below is a guess grounded in this repo's own working
-# release.yml and in real precedent (fdroiddata's com.mattermost.rnbeta.yml),
-# not a confirmed-working recipe. Validate with `fdroid build --verbose`
-# against the real buildserver VM before opening the MR.
+# Annotated copy of the recipe submitted to fdroiddata as
+# metadata/xyz.hub13.remindiary.yml (MR !46769 against
+# https://gitlab.com/fdroid/fdroiddata). The canonical, comment-stripped
+# version lives there and on the fdroiddata fork branch; this copy keeps
+# the reasoning behind each real, CI-verified decision for future
+# maintenance. Every claim below has been confirmed against a real
+# fdroiddata CI pipeline, not guessed - keep this copy in sync whenever
+# the pushed recipe changes.
 
 Categories:
   - Writing
@@ -103,16 +101,15 @@ Builds:
       # source rather than pulling each expo-*/react-native-* package's
       # prebuilt AAR - the same trick com.mmazzarolo.breathly.yml uses,
       # needed because F-Droid's scanner flags prebuilt binaries wherever
-      # they appear, not just the two this repo's own node_modules were
-      # confirmed to ship (see scanignore below).
-      - |-
-        node -e "
-        const fs = require('fs');
-        const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-        pkg.expo = pkg.expo || {};
-        pkg.expo.autolinking = { android: { buildFromSource: ['.*'] } };
-        fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
-        "
+      # they appear. The exact sed incantation is templates/build-react-
+      # native.yml's own line, switched to from an earlier JSON.parse/
+      # stringify version after a reviewer comment pointed at it - the two
+      # produce identical parsed output, confirmed by testing this exact
+      # question: local-maven-repo directories get created by expo-
+      # modules-autolinking's Gradle-time publish step either way,
+      # regardless of which patch style sets buildFromSource (see
+      # scanignore/scandelete below for how that's actually handled).
+      - sed -i -e '1a "expo":{"autolinking":{"android":{"buildFromSource":[".*"]}}},' package.json
       - npx expo prebuild --platform android --no-install
       # The buildserver ships OpenJDK 21 (confirmed by running the image
       # directly), not the 17 that RN 0.86's own gradle-plugin hardcodes
@@ -181,38 +178,31 @@ Builds:
       # An unrelated packaged template archive, not part of the build.
       - node_modules/expo/template.tgz
 
-    # Confirmed by running the real scanner end to end (`fdroid build`, not
-    # a guess): the hermes-compiler/lightningcss entries were verified
-    # against this repo's actual node_modules before any build ever ran;
-    # everything else below only surfaced once the scanner actually ran
-    # against a real generated android/ tree, exactly as this comment
-    # predicted it would. These are genuinely Android-relevant artifacts
-    # (prebuilt AARs/JARs/.so files each expo-* package ships, and a few
-    # build.gradle files declaring local maven repos) - scanignore'd rather
-    # than rm'd, since it is not yet confirmed the actual gradle build
-    # tolerates their absence even with autolinking's buildFromSource set;
-    # deleting them is a possible future tightening once a real APK has
-    # actually been produced to test against, not before.
+    # scanignore protects exactly the files confirmed necessary for the
+    # build to succeed - each one earned its place through a real CI
+    # failure, not a guess: hermesc/linux64-bin is the Hermes compiler this
+    # Linux buildserver actually needs; expo-sqlite's vec/ and libsql/ are
+    # real native .so libraries; the four build.gradle/ExpoModulesCore
+    # Plugin.gradle files are needed for Gradle to resolve those modules as
+    # projects at all - deleting react-native-safe-area-context's
+    # build.gradle (it gets flagged for an unrecognized maven repo,
+    # unrelated to autolinking) broke exactly that way in a real pipeline
+    # run. Everything else - the local-maven-repo directories expo-
+    # modules-autolinking publishes per module regardless of
+    # buildFromSource - falls through to scandelete's broad node_modules/,
+    # confirmed by a real successful build+scan+APK-size-unchanged result:
+    # those prebuilt AAR/JAR artifacts really are unused once the app is
+    # built from source, not merely unscanned.
     scanignore:
       - node_modules/hermes-compiler/hermesc/linux64-bin/hermesc
-      - node_modules/expo-asset/local-maven-repo/
-      - node_modules/expo-document-picker/local-maven-repo/
-      - node_modules/expo-file-system/local-maven-repo/
-      - node_modules/expo-font/local-maven-repo/
-      - node_modules/expo/node_modules/@expo/dom-webview/local-maven-repo/
-      - node_modules/expo/node_modules/expo-keep-awake/local-maven-repo/
-      - node_modules/expo-sharing/local-maven-repo/
-      - node_modules/expo-sqlite/local-maven-repo/
       - node_modules/expo-sqlite/android/vec/
       - node_modules/expo-sqlite/android/libsql/
-      - node_modules/expo-status-bar/local-maven-repo/
       - node_modules/react-native-screens/android/build.gradle
       - node_modules/react-native-safe-area-context/android/build.gradle
       - node_modules/expo-modules-core/android/ExpoModulesCorePlugin.gradle
       - node_modules/react-native/ReactAndroid/publish.gradle
     scandelete:
-      - node_modules/hermes-compiler/hermesc/osx-bin
-      - node_modules/hermes-compiler/hermesc/win64-bin
+      - node_modules/
 
     # Confirmed by a real, successful fdroid build on this repo's own
     # fdroiddata CI pipeline: this glob correctly matches the unsigned APK
@@ -255,14 +245,7 @@ Builds:
         config.expo.android.versionCode = 10001999;
         fs.writeFileSync('app.json', JSON.stringify(config, null, 2) + '\n');
         "
-      - |-
-        node -e "
-        const fs = require('fs');
-        const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-        pkg.expo = pkg.expo || {};
-        pkg.expo.autolinking = { android: { buildFromSource: ['.*'] } };
-        fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
-        "
+      - sed -i -e '1a "expo":{"autolinking":{"android":{"buildFromSource":[".*"]}}},' package.json
       - npx expo prebuild --platform android --no-install
       - sed -i '/jvmToolchain\|JavaVersion/s/17/21/' node_modules/@react-native/gradle-plugin/*/build.gradle.kts node_modules/@react-native/gradle-plugin/react-native-gradle-plugin/src/main/kotlin/com/facebook/react/utils/JdkConfiguratorUtils.kt
       - python3 -c "path = 'android/app/build.gradle'; f = open(path); content = f.read();
@@ -288,24 +271,14 @@ Builds:
       - node_modules/expo/template.tgz
     scanignore:
       - node_modules/hermes-compiler/hermesc/linux64-bin/hermesc
-      - node_modules/expo-asset/local-maven-repo/
-      - node_modules/expo-document-picker/local-maven-repo/
-      - node_modules/expo-file-system/local-maven-repo/
-      - node_modules/expo-font/local-maven-repo/
-      - node_modules/expo/node_modules/@expo/dom-webview/local-maven-repo/
-      - node_modules/expo/node_modules/expo-keep-awake/local-maven-repo/
-      - node_modules/expo-sharing/local-maven-repo/
-      - node_modules/expo-sqlite/local-maven-repo/
       - node_modules/expo-sqlite/android/vec/
       - node_modules/expo-sqlite/android/libsql/
-      - node_modules/expo-status-bar/local-maven-repo/
       - node_modules/react-native-screens/android/build.gradle
       - node_modules/react-native-safe-area-context/android/build.gradle
       - node_modules/expo-modules-core/android/ExpoModulesCorePlugin.gradle
       - node_modules/react-native/ReactAndroid/publish.gradle
     scandelete:
-      - node_modules/hermes-compiler/hermesc/osx-bin
-      - node_modules/hermes-compiler/hermesc/win64-bin
+      - node_modules/
     output: android/app/build/outputs/apk/release/*.apk
 
 # UpdateCheckMode: Tags makes `fdroid checkupdates` check out each of the
