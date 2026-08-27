@@ -7,8 +7,13 @@
 # fdroiddata CI pipeline, not guessed - keep this copy in sync whenever
 # the pushed recipe changes.
 
+# Note, not Writing - pushed back initially (Writing's official description
+# explicitly says "journaling"), but there's no dedicated Journal category
+# and the reviewer's point stands: the line between quick notes and
+# journaling is genuinely blurry for an app that's both. Deferred to their
+# call rather than relitigate a subjective categorization.
 Categories:
-  - Writing
+  - Note
 License: GPL-3.0-or-later
 # Added after a reviewer comment asked for author info - sampled real
 # convention across the fdroiddata repo rather than guessing: AuthorName +
