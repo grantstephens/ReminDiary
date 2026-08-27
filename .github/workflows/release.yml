@@ -41,6 +41,16 @@ jobs:
     name: Signed APK and AAB
     needs: check
     runs-on: ubuntu-latest
+    env:
+      # Match F-Droid's buildserver gradle home exactly: the react-android
+      # prefab headers are consumed from $GRADLE_USER_HOME/caches/..., and
+      # that absolute path is baked into the codegen .so files (via __FILE__
+      # in propsConversions.h). Confirmed by byte-level diff of F-Droid's
+      # own CI build vs this workflow's: the ONLY content difference in
+      # libreact_codegen_rnscreens.so / libreact_codegen_safeareacontext.so
+      # was /home/vagrant/.gradle vs this runner's default /home/runner/.gradle
+      # (every other byte of both APKs already matched).
+      GRADLE_USER_HOME: /home/vagrant/.gradle
     # Native compilers commonly embed the absolute source path into debug
     # info inside compiled .so files - confirmed by a real reproducibility
     # failure where matching every toolchain version (JDK, Node, NDK - the
