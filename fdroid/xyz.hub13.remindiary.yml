@@ -42,11 +42,30 @@ Repo: https://github.com/grantstephens/ReminDiary.git
 Builds:
   # Reviewer asked to drop the older version ("Remove the old version."):
   # this app had not been published yet, so nothing depended on v1.0.0
-  # staying buildable. v1.0.1 is now the sole entry - AutoUpdateMode: Version
-  # (enabled above) auto-generates future entries from whatever is the last
-  # one, so there is no ongoing need to keep a superseded entry around.
+  # staying buildable. v1.0.1 is now the sole release - AutoUpdateMode:
+  # Version (enabled above) auto-generates future entries from whatever
+  # are the last N (see VercodeOperation below), so there is no ongoing
+  # need to keep a superseded entry around.
+  #
+  # ABI split (reviewer request, per https://f-droid.org/en/docs/
+  # Submitting_to_F-Droid_Quick_Start_Guide/#setup-abi-split): one Builds
+  # entry per ABI instead of a single universal APK - armeabi-v7a and
+  # arm64-v8a only, following com.marlinid.marlin.yml's real, already-
+  # merged precedent of skipping the emulator-only x86/x86_64 pair.
+  # versionCode is base * 10 + 1/+2 (VercodeOperation below), matching
+  # the doc's required v7a < v8a < x86 < x86_64 ordering. Each entry
+  # passes -PreactNativeArchitectures=<abi> directly in its own build:
+  # block rather than using the gradleprops: field marlin's recipe uses -
+  # gradleprops: only takes effect for the `gradle:` build method
+  # (checked build.py), and this recipe uses output: + a custom build:
+  # block instead, because (unlike marlin's repo, which commits android/
+  # to git) ReminDiary is pure Expo managed-workflow: android/ is
+  # generated fresh by `expo prebuild` and never committed, so `subdir:
+  # android/app` + `gradle: yes` would fail the pre-build directory-
+  # exists check (see the note below UpdateCheckMode for the earlier,
+  # equivalent finding this is the same root cause as).
   - versionName: 1.0.1
-    versionCode: 10001999
+    versionCode: 100019991
     commit: bc08c5b733dc12d3c1d9c3cd733b7dd141b17dd6
     sudo:
       - echo "deb http://deb.debian.org/debian forky main" > /etc/apt/sources.list.d/forky.list
@@ -77,7 +96,41 @@ Builds:
       - printf '\norg.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=2g\n' >> android/gradle.properties
     build:
       - cd android/app
-      - gradle assembleRelease
+      - gradle -PreactNativeArchitectures=armeabi-v7a assembleRelease
+    scanignore:
+      - node_modules/hermes-compiler/hermesc/linux64-bin/hermesc
+      - node_modules/react-native-screens/android/build.gradle
+      - node_modules/react-native-safe-area-context/android/build.gradle
+      - node_modules/expo-modules-core/android/ExpoModulesCorePlugin.gradle
+      - node_modules/react-native/ReactAndroid/publish.gradle
+    scandelete:
+      - node_modules/
+    output: android/app/build/outputs/apk/release/*.apk
+
+  - versionName: 1.0.1
+    versionCode: 100019992
+    commit: bc08c5b733dc12d3c1d9c3cd733b7dd141b17dd6
+    sudo:
+      - echo "deb http://deb.debian.org/debian forky main" > /etc/apt/sources.list.d/forky.list
+      - apt-get update
+      - apt-get install -y -t forky nodejs npm
+    init:
+      - export CI=1
+      - export EXPO_NO_TELEMETRY=1
+      - npm ci
+    prebuild:
+      - export CI=1
+      - export EXPO_NO_TELEMETRY=1
+      - sed -i -e '/"version"/s/1.0.0/$$VERSION$$/' -e '/"android":\ {/a "versionCode":$$VERCODE$$,'
+        app.json
+      - sed -i -e '1a "expo":{"autolinking":{"android":{"buildFromSource":[".*"]}}},' package.json
+      - npx expo prebuild --platform android --no-install
+      - sed -i '/jvmToolchain\|JavaVersion/s/17/21/' node_modules/@react-native/gradle-plugin/*/build.gradle.kts node_modules/@react-native/gradle-plugin/react-native-gradle-plugin/src/main/kotlin/com/facebook/react/utils/JdkConfiguratorUtils.kt
+      - sed -i -e '/signingConfig /d' android/app/build.gradle
+      - printf '\norg.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=2g\n' >> android/gradle.properties
+    build:
+      - cd android/app
+      - gradle -PreactNativeArchitectures=arm64-v8a assembleRelease
     scanignore:
       - node_modules/hermes-compiler/hermesc/linux64-bin/hermesc
       - node_modules/react-native-screens/android/build.gradle
@@ -124,6 +177,15 @@ Builds:
 # arguing they were unavoidable.
 AutoUpdateMode: Version
 UpdateCheckMode: Tags
+# Derives each ABI split's versionCode from the raw one fdroid-version.txt
+# carries (see above) - %c * 10 + 1 for armeabi-v7a, + 2 for arm64-v8a,
+# matching the two Builds entries above in the same order. CurrentVersionCode
+# below must be the max of these (checkupdates' own "up to date" check
+# compares against vercodes[-1] after sorting), confirmed against a real
+# green checkupdates job on this branch's CI with this exact value.
+VercodeOperation:
+  - '%c * 10 + 1'
+  - '%c * 10 + 2'
 UpdateCheckData: fdroid-version.txt|versionCode=([0-9]+)|.|versionName=(.+)
 CurrentVersion: 1.0.1
-CurrentVersionCode: 10001999
+CurrentVersionCode: 100019992
