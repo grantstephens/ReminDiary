@@ -133,15 +133,19 @@ jobs:
       # into the generated build.gradle and AndroidManifest.xml, so this is
       # the one piece of the release build that does not need a post-prebuild
       # patch - it just needs the right input.
+      # sed, not JSON.parse/stringify: a full parse+reformat round-trip
+      # inserts versionCode wherever JS's object-key ordering happens to put
+      # it (the end of the android object), while F-Droid's own recipe
+      # (using this same sed, after a reviewer suggestion) inserts it right
+      # after "android": {. Confirmed a real, mechanical difference in the
+      # resulting app.json between this workflow and F-Droid's build -
+      # aligning them removes one more source of divergence between a
+      # reproducible-build reference APK and F-Droid's own from-source build.
       - name: Set app.json version
         run: |
-          node -e "
-            const fs = require('fs');
-            const config = JSON.parse(fs.readFileSync('app.json', 'utf8'));
-            config.expo.version = '${{ steps.version.outputs.name }}';
-            config.expo.android.versionCode = ${{ steps.version.outputs.code }};
-            fs.writeFileSync('app.json', JSON.stringify(config, null, 2) + '\n');
-          "
+          sed -i -e "/\"version\"/s/1.0.0/${{ steps.version.outputs.name }}/" \
+            -e "/\"android\":\ {/a \"versionCode\":${{ steps.version.outputs.code }}," \
+            app.json
 
       - name: Prebuild the native Android project
         run: npx expo prebuild --platform android --no-install
@@ -263,14 +267,42 @@ jobs:
             SPLIT_CODE=$((BASE_CODE * 10 + SUFFIX))
             echo "::group::Building $ABI (versionCode=$SPLIT_CODE)"
 
+            # Resets app.json/package.json to their pristine committed state
+            # first - F-Droid's own build starts each Builds entry from a
+            # completely fresh checkout, so without this reset the second
+            # split build here would patch values the first split build (or
+            # the universal build, earlier in this same job) already
+            # changed, corrupting both the version-sed's match and the
+            # autolinking insert (which would otherwise duplicate).
+            git checkout -- app.json package.json
             rm -rf android
-            node -e "
-              const fs = require('fs');
-              const config = JSON.parse(fs.readFileSync('app.json', 'utf8'));
-              config.expo.version = '$VERSION_NAME';
-              config.expo.android.versionCode = $SPLIT_CODE;
-              fs.writeFileSync('app.json', JSON.stringify(config, null, 2) + '\n');
-            "
+
+            # Same sed this workflow's own F-Droid recipe uses (after a
+            # reviewer suggestion) - not the JSON.parse/stringify version
+            # used above for the universal APK, which was confirmed to
+            # insert versionCode in a different position within the
+            # android object (JS object-key ordering puts it last; this
+            # inserts it right after "android": {, matching F-Droid exactly).
+            sed -i -e "/\"version\"/s/1.0.0/$VERSION_NAME/" \
+              -e "/\"android\":\ {/a \"versionCode\":$SPLIT_CODE," \
+              app.json
+
+            # F-Droid's recipe forces every native module to build from
+            # source rather than consume a prebuilt AAR (its own scanner
+            # policy disallows shipping prebuilt binaries) - this workflow
+            # never had that constraint, so it never applied this patch,
+            # meaning its own build could link different (prebuilt)
+            # versions of native modules than F-Droid's from-source
+            # compilation. For these reference APKs specifically, matching
+            # F-Droid's own compilation inputs matters more than build
+            # speed, so this applies the identical patch.
+            sed -i -e '1a "expo":{"autolinking":{"android":{"buildFromSource":[".*"]}}},' package.json
+
+            # The standalone "Retarget RN's gradle-plugin JDK requirement to
+            # 21" step already patched node_modules once, for the whole job -
+            # that patch persists across rm -rf android/prebuild cycles
+            # (node_modules isn't reset by the git checkout above), so it
+            # doesn't need reapplying here.
             npx expo prebuild --platform android --no-install
             python3 tools/patch-release-signing.py
             (cd android && ./gradlew assembleRelease -PreactNativeArchitectures=$ABI)
