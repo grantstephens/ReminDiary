@@ -1,0 +1,4 @@
+No user-facing changes. Internal build-process fixes for F-Droid's
+reproducible-build verification (a pinned dev-server address and
+normalized native-library metadata, so F-Droid's from-source build matches
+this release byte-for-byte).
