@@ -259,17 +259,22 @@ jobs:
       # default (see README).
       - name: Build and verify per-ABI split APKs (F-Droid reproducible-build reference)
         env:
-          RELEASE_STORE_FILE: ${{ runner.temp }}/keystore.jks
-          RELEASE_STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          RELEASE_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          RELEASE_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
           KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASS: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           set -euo pipefail
           BASE_CODE=${{ steps.version.outputs.code }}
           VERSION_NAME=${{ steps.version.outputs.name }}
           TAG=${{ steps.version.outputs.tag }}
+
+          # Same tool, same tag, F-Droid's own recipe srclibs for its side of
+          # this comparison (see fdroid/xyz.hub13.remindiary.yml's postbuild:)
+          # - apksigcopier's signature-transplant check requires both APKs'
+          # local-entry regions to land at the same byte length, which only
+          # holds if both sides apply the identical zipalign normalization.
+          RAT_DIR="$RUNNER_TEMP/reproducible-apk-tools"
+          git clone --quiet --branch v0.3.0 https://gitlab.com/fdroid/reproducible-apk-tools.git "$RAT_DIR"
 
           build_split() {
             ABI="$1"
@@ -314,11 +319,43 @@ jobs:
             # (node_modules isn't reset by the git checkout above), so it
             # doesn't need reapplying here.
             npx expo prebuild --platform android --no-install
-            python3 tools/patch-release-signing.py
-            (cd android && ./gradlew assembleRelease -PreactNativeArchitectures=$ABI)
+
+            # Signed externally below instead of via Gradle's signingConfig
+            # (same reasoning as F-Droid's own recipe, which deletes this
+            # same line): the reproducible-build check needs this file to be
+            # byte-identical, post-normalization, to F-Droid's own unsigned
+            # build output, and signing has to happen after that
+            # normalization or it invalidates the signature - simplest to
+            # never let Gradle sign it in the first place.
+            sed -i -e '/signingConfig /d' android/app/build.gradle
+
+            # reactNativeDevServerIp defaults to this machine's own LAN IP
+            # (@react-native/gradle-plugin's getHostIpAddress(), baked into a
+            # release resource string via resValue) - confirmed by a real
+            # diff to be the sole cause of every byte difference in
+            # resources.arsc between this workflow's build and F-Droid's:
+            # each build machine embeds its own address. Pinned to the same
+            # fixed value F-Droid's recipe now also passes.
+            (cd android && ./gradlew assembleRelease \
+              -PreactNativeArchitectures=$ABI -PreactNativeDevServerIp=localhost)
+
+            UNSIGNED=android/app/build/outputs/apk/release/app-release-unsigned.apk
+
+            # The native linker's .note.gnu.build-id is computed mid-link,
+            # before debug-symbol stripping, so it can (and does, confirmed
+            # by a real diff) differ between two byte-identical builds. Not
+            # meaningful once symbols are stripped, so zeroed rather than
+            # fixed to a particular hash - both sides zero it the same way.
+            python3 tools/zero-elf-build-id.py "$UNSIGNED"
+
+            mv "$UNSIGNED" "$UNSIGNED.unaligned"
+            "$RAT_DIR/zipalign.py" --page-size 16 --pad-like-apksigner --replace \
+              "$UNSIGNED.unaligned" "$UNSIGNED"
 
             OUT="remindiary-${TAG}-${ABI}.apk"
-            cp android/app/build/outputs/apk/release/app-release.apk "$OUT"
+            apksigner sign --ks "$RUNNER_TEMP/keystore.jks" --ks-pass "pass:$KS_PASS" \
+              --ks-key-alias "$KEY_ALIAS" --key-pass "pass:$KEY_PASS" \
+              --out "$OUT" "$UNSIGNED"
             tools/verify-release-apk.sh "$OUT" "$SPLIT_CODE" "'$ABI'"
             echo "::endgroup::"
           }

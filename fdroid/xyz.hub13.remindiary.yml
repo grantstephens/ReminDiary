@@ -82,10 +82,54 @@ Builds:
   # keystore's SHA-256 fingerprint, extracted straight from a published
   # signed APK via `apksigner verify --print-certs` - no access to the
   # private keystore needed, confirmed identical across both split APKs.
+  #
+  # Getting byte-identical took five straight environment/toolchain fixes
+  # (JDK, Node, NDK, absolute build paths, buildFromSource) that closed the
+  # gap down to just resources.arsc + six native .so files still differing.
+  # Diffing the real extracted bytes (not guessing) found two distinct,
+  # confirmed root causes, both non-deterministic build *inputs* rather than
+  # toolchain mismatches:
+  #
+  # 1. resources.arsc: @react-native/gradle-plugin's configureDevServerLocation()
+  #    bakes the build machine's own LAN IP into a release resource string
+  #    (react_native_dev_server_ip, via getHostIpAddress()) unless overridden
+  #    with the reactNativeDevServerIp Gradle property - GitHub's runner and
+  #    F-Droid's buildserver each have their own address, and every other
+  #    byte difference in the file cascaded from that one string's length
+  #    changing aapt2's alphabetical string-pool ordering. Pinned to the same
+  #    fixed value on both sides (build: below and release.yml).
+  # 2. Five of six .so files: differed *only* in their linker-generated
+  #    .note.gnu.build-id (a 20-byte hash computed mid-link, before
+  #    debug-symbol stripping - not meaningful once symbols are stripped, and
+  #    not guaranteed to match even for byte-identical final output).
+  #    tools/zero-elf-build-id.py zeroes it in place on both sides rather
+  #    than trying to make its computation deterministic.
+  #
+  # Both fixes still require the packaging-level zipalign fix below: fixing
+  # content alone doesn't help unless the two APKs' local-entry regions also
+  # land at the same byte length, which is what apksigcopier's signature
+  # transplant actually requires to succeed (confirmed via a real failure:
+  # "APK Signing Block offset < central directory offset", traced to
+  # fdroidserver's own patch_v2_sig() requiring exactly this).
+  # dev.djara.wafrn_rn.yml (a real, merged fdroiddata recipe combining ABI
+  # split with reproducible builds for an Expo/RN app) uses the same
+  # srclibs/postbuild zipalign pattern below - copied rather than reinvented.
+  # release.yml applies the identical zipalign normalization (same tool, same
+  # tag) to its own from-source build of the reference APKs before signing
+  # them externally with apksigner, instead of letting Gradle sign - the two
+  # sides only land at the same byte length if both apply it.
+  #
+  # One .so (libreact_codegen_rnscreens.so) had a further, unexplained
+  # structural difference beyond the build-id (a real 16-byte size gap,
+  # confirmed via direct extraction and comparison) - not yet resolved by
+  # either fix above. Whether it survives is something the next real CI
+  # pipeline will show.
   - versionName: 1.0.2
     versionCode: 100029991
     commit: 0892f159f25b4ac753efb2be64799916ceae6450
     binary: https://github.com/grantstephens/ReminDiary/releases/download/v1.0.2/remindiary-v1.0.2-armeabi-v7a.apk
+    srclibs:
+      - reproducible-apk-tools@v0.3.0
     sudo:
       - echo "deb http://deb.debian.org/debian forky main" > /etc/apt/sources.list.d/forky.list
       - apt-get update
@@ -115,7 +159,11 @@ Builds:
       - printf '\norg.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=2g\n' >> android/gradle.properties
     build:
       - cd android/app
-      - gradle -PreactNativeArchitectures=armeabi-v7a assembleRelease
+      - gradle -PreactNativeArchitectures=armeabi-v7a assembleRelease -PreactNativeDevServerIp=localhost
+    postbuild:
+      - python3 tools/zero-elf-build-id.py $$OUT$$
+      - mv $$OUT$$ unaligned.apk
+      - $$reproducible-apk-tools$$/zipalign.py --page-size 16 --pad-like-apksigner --replace unaligned.apk $$OUT$$
     scanignore:
       - node_modules/hermes-compiler/hermesc/linux64-bin/hermesc
       - node_modules/react-native-screens/android/build.gradle
@@ -130,6 +178,8 @@ Builds:
     versionCode: 100029992
     commit: 0892f159f25b4ac753efb2be64799916ceae6450
     binary: https://github.com/grantstephens/ReminDiary/releases/download/v1.0.2/remindiary-v1.0.2-arm64-v8a.apk
+    srclibs:
+      - reproducible-apk-tools@v0.3.0
     sudo:
       - echo "deb http://deb.debian.org/debian forky main" > /etc/apt/sources.list.d/forky.list
       - apt-get update
@@ -150,7 +200,11 @@ Builds:
       - printf '\norg.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=2g\n' >> android/gradle.properties
     build:
       - cd android/app
-      - gradle -PreactNativeArchitectures=arm64-v8a assembleRelease
+      - gradle -PreactNativeArchitectures=arm64-v8a assembleRelease -PreactNativeDevServerIp=localhost
+    postbuild:
+      - python3 tools/zero-elf-build-id.py $$OUT$$
+      - mv $$OUT$$ unaligned.apk
+      - $$reproducible-apk-tools$$/zipalign.py --page-size 16 --pad-like-apksigner --replace unaligned.apk $$OUT$$
     scanignore:
       - node_modules/hermes-compiler/hermesc/linux64-bin/hermesc
       - node_modules/react-native-screens/android/build.gradle
