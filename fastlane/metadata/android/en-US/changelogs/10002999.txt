@@ -1,0 +1,5 @@
+New: a CSV import help page (linked from Settings) explaining the exact
+file format expected, with a downloadable example.
+
+Smaller downloads: F-Droid installs now use per-architecture APKs
+instead of one universal file.
