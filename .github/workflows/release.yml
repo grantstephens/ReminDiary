@@ -108,8 +108,9 @@ jobs:
       # for the second one isn't traceable from available logs.
       - name: Install both NDK versions F-Droid's buildserver installs
         run: |
-          yes | sdkmanager --licenses > /dev/null || true
-          sdkmanager --install "ndk;27.0.12077973" "ndk;27.1.12297006"
+          SDKMANAGER=$(find "$ANDROID_HOME/cmdline-tools" -name sdkmanager -type f | sort -V | tail -1)
+          yes | "$SDKMANAGER" --licenses > /dev/null || true
+          "$SDKMANAGER" --install "ndk;27.0.12077973" "ndk;27.1.12297006"
 
       # versionCode is a packed integer, not just the tag - see
       # tools/compute-version.sh for the scheme and why. That script is the
