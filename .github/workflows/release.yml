@@ -57,10 +57,13 @@ jobs:
         with:
           ref: ${{ github.event.inputs.tag || github.ref }}
 
-      # cp's own source/destination are both absolute, so this doesn't
-      # depend on (and isn't affected by) the job's default working
-      # directory above, even though that directory doesn't exist yet.
+      # Explicit working-directory override: the job's default (above)
+      # doesn't exist yet at this point in the job, and the runner tries
+      # to start this step's shell IN that directory regardless of what
+      # the command itself references, which fails before the command
+      # ever runs if it's missing - confirmed by a real CI failure here.
       - name: Relocate checkout to match F-Droid's buildserver path
+        working-directory: ${{ github.workspace }}
         run: |
           sudo mkdir -p /home/vagrant/build
           sudo chown -R "$(id -un):$(id -gn)" /home/vagrant
