@@ -124,10 +124,10 @@ Builds:
   # confirmed via direct extraction and comparison) - not yet resolved by
   # either fix above. Whether it survives is something the next real CI
   # pipeline will show.
-  - versionName: 1.0.2
-    versionCode: 100029991
-    commit: 0892f159f25b4ac753efb2be64799916ceae6450
-    binary: https://github.com/grantstephens/ReminDiary/releases/download/v1.0.2/remindiary-v1.0.2-armeabi-v7a.apk
+  - versionName: 1.0.3
+    versionCode: 100039991
+    commit: 9d8e85f04965df6cf19da6ff70e0f871befd3ce5
+    binary: https://github.com/grantstephens/ReminDiary/releases/download/v1.0.3/remindiary-v1.0.3-armeabi-v7a.apk
     srclibs:
       - reproducible-apk-tools@v0.3.0
     sudo:
@@ -174,10 +174,10 @@ Builds:
       - node_modules/
     output: android/app/build/outputs/apk/release/*.apk
 
-  - versionName: 1.0.2
-    versionCode: 100029992
-    commit: 0892f159f25b4ac753efb2be64799916ceae6450
-    binary: https://github.com/grantstephens/ReminDiary/releases/download/v1.0.2/remindiary-v1.0.2-arm64-v8a.apk
+  - versionName: 1.0.3
+    versionCode: 100039992
+    commit: 9d8e85f04965df6cf19da6ff70e0f871befd3ce5
+    binary: https://github.com/grantstephens/ReminDiary/releases/download/v1.0.3/remindiary-v1.0.3-arm64-v8a.apk
     srclibs:
       - reproducible-apk-tools@v0.3.0
     sudo:
@@ -267,5 +267,5 @@ VercodeOperation:
   - '%c * 10 + 1'
   - '%c * 10 + 2'
 UpdateCheckData: fdroid-version.txt|versionCode=([0-9]+)|.|versionName=(.+)
-CurrentVersion: 1.0.2
-CurrentVersionCode: 100029992
+CurrentVersion: 1.0.3
+CurrentVersionCode: 100039992
