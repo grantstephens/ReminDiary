@@ -69,9 +69,23 @@ Builds:
   # android/app` + `gradle: yes` would fail the pre-build directory-
   # exists check (see the note below UpdateCheckMode for the earlier,
   # equivalent finding this is the same root cause as).
-  - versionName: 1.0.1
-    versionCode: 100019991
-    commit: bc08c5b733dc12d3c1d9c3cd733b7dd141b17dd6
+  # Reproducible build (reviewer request): Binaries/binary + AllowedAPKSigning
+  # Keys work by transplanting the reference binary's signature onto
+  # F-Droid's own from-source build and checking it still verifies
+  # (apksigcopier) - which only succeeds if the two are byte-identical.
+  # Couldn't backfill this onto v1.0.1: that requires release.yml's new
+  # per-ABI split build (added after v1.0.1 was tagged, so its checked-out
+  # source doesn't have the tooling). v1.0.2 is a real tagged release built
+  # with the updated release.yml, so both Builds entries below now target
+  # it instead, each with its own `binary:` pointing at the matching real,
+  # already-published split APK. AllowedAPKSigningKeys is the real release
+  # keystore's SHA-256 fingerprint, extracted straight from a published
+  # signed APK via `apksigner verify --print-certs` - no access to the
+  # private keystore needed, confirmed identical across both split APKs.
+  - versionName: 1.0.2
+    versionCode: 100029991
+    commit: 0892f159f25b4ac753efb2be64799916ceae6450
+    binary: https://github.com/grantstephens/ReminDiary/releases/download/v1.0.2/remindiary-v1.0.2-armeabi-v7a.apk
     sudo:
       - echo "deb http://deb.debian.org/debian forky main" > /etc/apt/sources.list.d/forky.list
       - apt-get update
@@ -112,9 +126,10 @@ Builds:
       - node_modules/
     output: android/app/build/outputs/apk/release/*.apk
 
-  - versionName: 1.0.1
-    versionCode: 100019992
-    commit: bc08c5b733dc12d3c1d9c3cd733b7dd141b17dd6
+  - versionName: 1.0.2
+    versionCode: 100029992
+    commit: 0892f159f25b4ac753efb2be64799916ceae6450
+    binary: https://github.com/grantstephens/ReminDiary/releases/download/v1.0.2/remindiary-v1.0.2-arm64-v8a.apk
     sudo:
       - echo "deb http://deb.debian.org/debian forky main" > /etc/apt/sources.list.d/forky.list
       - apt-get update
@@ -180,6 +195,12 @@ Builds:
 # stayed None because the version patch hardcoded literals that couldn't
 # safely be auto-generated - resolved by removing the literals, not by
 # arguing they were unavoidable.
+
+# Real release keystore's SHA-256 fingerprint (see the reproducible-build
+# comment on the first Builds entry above) - pins which signing key the
+# binary:-referenced reference APKs must actually be signed with.
+AllowedAPKSigningKeys: a79298e44336ddcb4d63b728d70dda772381274274cbb44609bdaa6ff2e2f328
+
 AutoUpdateMode: Version
 UpdateCheckMode: Tags
 # Derives each ABI split's versionCode from the raw one fdroid-version.txt
@@ -192,5 +213,5 @@ VercodeOperation:
   - '%c * 10 + 1'
   - '%c * 10 + 2'
 UpdateCheckData: fdroid-version.txt|versionCode=([0-9]+)|.|versionName=(.+)
-CurrentVersion: 1.0.1
-CurrentVersionCode: 100019992
+CurrentVersion: 1.0.2
+CurrentVersionCode: 100029992
