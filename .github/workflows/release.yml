@@ -99,6 +99,18 @@ jobs:
           BUILD_TOOLS=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
           echo "$BUILD_TOOLS" >> "$GITHUB_PATH"
 
+      # F-Droid's buildserver installs both of these NDK versions during its
+      # own build, even though nothing in node_modules explicitly requests
+      # 27.0.12077973 (every module's build.gradle defers to the same
+      # shared version catalog default, 27.1.12297006) - this workflow only
+      # ever installed the one AGP auto-resolves for that default. Mirroring
+      # the buildserver's actual installed set directly, since the trigger
+      # for the second one isn't traceable from available logs.
+      - name: Install both NDK versions F-Droid's buildserver installs
+        run: |
+          yes | sdkmanager --licenses > /dev/null || true
+          sdkmanager --install "ndk;27.0.12077973" "ndk;27.1.12297006"
+
       # versionCode is a packed integer, not just the tag - see
       # tools/compute-version.sh for the scheme and why. That script is the
       # single source of truth for this arithmetic, shared with
