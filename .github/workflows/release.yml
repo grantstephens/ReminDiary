@@ -46,18 +46,28 @@ jobs:
         with:
           ref: ${{ github.event.inputs.tag || github.ref }}
 
+      # Matches F-Droid's buildserver exactly (Node from Debian forky via
+      # `apt-get install -t forky nodejs`, currently 24.19.0), not this
+      # repo's own mise.toml pin (24.16.0, used for local dev and the
+      # `check` job above) - reproducible-build verification transplants
+      # F-Droid's own build's signature onto this APK and checks it still
+      # verifies, which only succeeds if the two are built byte-identical.
+      # A JDK/Node mismatch between this workflow and the buildserver was
+      # confirmed to break that (every file in the APK differed - dex,
+      # native libs, resources.arsc, AndroidManifest.xml) before this was
+      # pinned to match.
       - uses: actions/setup-node@v4
         with:
-          node-version: '24.16.0'
+          node-version: '24.19.0'
           cache: npm
       - run: npm ci
 
-      # expo prebuild's generated Android project needs JDK 17; the runner's
-      # default `java` is not guaranteed to be it.
+      # Matches F-Droid's buildserver's OpenJDK 21, for the same
+      # byte-identical-build reason as the Node version above.
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: '21'
 
       # apksigner and aapt (used below in "Verify artefacts") live in the
       # Android SDK's build-tools, which is not on PATH by default.
@@ -99,6 +109,17 @@ jobs:
 
       - name: Prebuild the native Android project
         run: npx expo prebuild --platform android --no-install
+
+      # RN 0.86's own gradle-plugin hardcodes a JDK 17 toolchain requirement
+      # (jvmToolchain(17)/JavaVersion.VERSION_17 in its generated build
+      # files), which conflicts with the JDK 21 this workflow now installs
+      # to match F-Droid's buildserver (see the setup-java step above).
+      # Same patch the F-Droid recipe already carries for the same reason.
+      - name: Retarget RN's gradle-plugin JDK requirement to 21
+        run: |
+          sed -i '/jvmToolchain\|JavaVersion/s/17/21/' \
+            node_modules/@react-native/gradle-plugin/*/build.gradle.kts \
+            node_modules/@react-native/gradle-plugin/react-native-gradle-plugin/src/main/kotlin/com/facebook/react/utils/JdkConfiguratorUtils.kt
 
       # expo prebuild's generated build.gradle signs the "release" build
       # type with the debug keystore by default - its own comment says as
