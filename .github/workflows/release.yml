@@ -41,10 +41,30 @@ jobs:
     name: Signed APK and AAB
     needs: check
     runs-on: ubuntu-latest
+    # Native compilers commonly embed the absolute source path into debug
+    # info inside compiled .so files - confirmed by a real reproducibility
+    # failure where matching every toolchain version (JDK, Node, NDK - the
+    # last already pinned via node_modules' own version catalog regardless
+    # of environment) still left native libs, AndroidManifest.xml, and
+    # resources.arsc differing. F-Droid's buildserver checks out to
+    # /home/vagrant/build/xyz.hub13.remindiary; this matches that path
+    # exactly so a from-source build here is byte-identical to F-Droid's.
+    defaults:
+      run:
+        working-directory: /home/vagrant/build/xyz.hub13.remindiary
     steps:
       - uses: actions/checkout@v5
         with:
           ref: ${{ github.event.inputs.tag || github.ref }}
+
+      # cp's own source/destination are both absolute, so this doesn't
+      # depend on (and isn't affected by) the job's default working
+      # directory above, even though that directory doesn't exist yet.
+      - name: Relocate checkout to match F-Droid's buildserver path
+        run: |
+          sudo mkdir -p /home/vagrant/build
+          sudo chown -R "$(id -un):$(id -gn)" /home/vagrant
+          cp -a "${{ github.workspace }}" /home/vagrant/build/xyz.hub13.remindiary
 
       # Matches F-Droid's buildserver exactly (Node from Debian forky via
       # `apt-get install -t forky nodejs`, currently 24.19.0), not this
@@ -149,7 +169,7 @@ jobs:
           RELEASE_STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           RELEASE_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           RELEASE_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        working-directory: android
+        working-directory: /home/vagrant/build/xyz.hub13.remindiary/android
         run: ./gradlew bundleRelease
 
       # Obtainium installs APKs, not bundles; bundletool flattens the AAB
@@ -248,14 +268,17 @@ jobs:
           build_split armeabi-v7a 1
           build_split arm64-v8a 2
 
+      # softprops/action-gh-release isn't a shell step, so it doesn't use
+      # the job's default working directory above - paths here need to be
+      # absolute.
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.tag }}
           files: |
-            remindiary-${{ steps.version.outputs.tag }}.apk
-            remindiary-${{ steps.version.outputs.tag }}.aab
-            remindiary-${{ steps.version.outputs.tag }}-armeabi-v7a.apk
-            remindiary-${{ steps.version.outputs.tag }}-arm64-v8a.apk
+            /home/vagrant/build/xyz.hub13.remindiary/remindiary-${{ steps.version.outputs.tag }}.apk
+            /home/vagrant/build/xyz.hub13.remindiary/remindiary-${{ steps.version.outputs.tag }}.aab
+            /home/vagrant/build/xyz.hub13.remindiary/remindiary-${{ steps.version.outputs.tag }}-armeabi-v7a.apk
+            /home/vagrant/build/xyz.hub13.remindiary/remindiary-${{ steps.version.outputs.tag }}-arm64-v8a.apk
           generate_release_notes: true
           prerelease: ${{ contains(steps.version.outputs.tag, '-') }}
