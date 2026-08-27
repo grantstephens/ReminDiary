@@ -110,54 +110,7 @@ jobs:
       # so a future template change fails the build loudly instead of
       # quietly shipping a debug-signed "release" APK.
       - name: Patch release signing config
-        run: |
-          python3 - <<'PY'
-          path = "android/app/build.gradle"
-          with open(path) as f:
-              content = f.read()
-
-          debug_block = """    signingConfigs {
-                  debug {
-                      storeFile file('debug.keystore')
-                      storePassword 'android'
-                      keyAlias 'androiddebugkey'
-                      keyPassword 'android'
-                  }
-              }"""
-          assert content.count(debug_block) == 1, (
-              "signingConfigs.debug block not found verbatim - "
-              "Expo's generated build.gradle template may have changed"
-          )
-          release_block = debug_block[:-len("\n    }")] + """
-                  release {
-                      storeFile file(System.getenv("RELEASE_STORE_FILE"))
-                      storePassword System.getenv("RELEASE_STORE_PASSWORD")
-                      keyAlias System.getenv("RELEASE_KEY_ALIAS")
-                      keyPassword System.getenv("RELEASE_KEY_PASSWORD")
-                  }
-              }"""
-          content = content.replace(debug_block, release_block, 1)
-
-          release_signing_line = """            // Caution! In production, you need to generate your own keystore file.
-                      // see https://reactnative.dev/docs/signed-apk-android.
-                      signingConfig signingConfigs.debug"""
-          assert content.count(release_signing_line) == 1, (
-              "release buildType's signingConfig line not found verbatim - "
-              "Expo's generated build.gradle template may have changed"
-          )
-          content = content.replace(
-              release_signing_line,
-              release_signing_line.replace(
-                  "signingConfig signingConfigs.debug",
-                  "signingConfig signingConfigs.release",
-              ),
-              1,
-          )
-
-          with open(path, "w") as f:
-              f.write(content)
-          print("Patched release signingConfig into build.gradle")
-          PY
+        run: python3 tools/patch-release-signing.py
 
       - name: Decode keystore
         env:
@@ -206,60 +159,73 @@ jobs:
       # Assertions, not just output: a silent regression here ships a
       # broken, over-permissioned, or wrongly-signed build to everyone
       # running Obtainium.
-      - name: Verify artefacts
+      - name: Verify universal APK
         env:
           KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
         run: |
+          tools/verify-release-apk.sh \
+            "remindiary-${{ steps.version.outputs.tag }}.apk" \
+            "${{ steps.version.outputs.code }}"
+
+      # F-Droid's own build (see fdroid/xyz.hub13.remindiary.yml) splits by
+      # ABI rather than shipping one universal APK, to cut the real per-
+      # device download roughly in half. Its reproducible-build check
+      # ("Binaries:"/per-build "binary:") verifies its from-source build is
+      # byte-identical to a reference binary via signature transplant
+      # (apksigcopier) - which only works if the reference is built the
+      # exact same way: a fresh `expo prebuild` per ABI (not a post-hoc
+      # build.gradle patch, which risks producing subtly different output),
+      # with that split's own versionCode (base * 10 + 1 for armeabi-v7a,
+      # + 2 for arm64-v8a - matching the fdroid recipe's VercodeOperation)
+      # baked in before prebuild runs, exactly like F-Droid's own build.
+      #
+      # These are published alongside the universal APK deliberately, not
+      # hidden: since GitHub Releases has no way to mark an asset "reference
+      # only", anyone can already see and download them, so they might as
+      # well be usable as smaller downloads for whoever knows their device's
+      # architecture. The universal APK stays the simple, no-judgment-call
+      # default (see README).
+      - name: Build and verify per-ABI split APKs (F-Droid reproducible-build reference)
+        env:
+          RELEASE_STORE_FILE: ${{ runner.temp }}/keystore.jks
+          RELEASE_STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
           set -euo pipefail
-          APK="remindiary-${{ steps.version.outputs.tag }}.apk"
+          BASE_CODE=${{ steps.version.outputs.code }}
+          VERSION_NAME=${{ steps.version.outputs.name }}
+          TAG=${{ steps.version.outputs.tag }}
 
-          apksigner verify --print-certs "$APK"
+          build_split() {
+            ABI="$1"
+            SUFFIX="$2"
+            SPLIT_CODE=$((BASE_CODE * 10 + SUFFIX))
+            echo "::group::Building $ABI (versionCode=$SPLIT_CODE)"
 
-          TARGET=$(aapt dump badging "$APK" | sed -n "s/.*targetSdkVersion:'\([0-9]*\)'.*/\1/p")
-          echo "targetSdkVersion=$TARGET"
-          [ "$TARGET" -ge 35 ] || { echo "::error::targetSdkVersion $TARGET < 35"; exit 1; }
+            rm -rf android
+            node -e "
+              const fs = require('fs');
+              const config = JSON.parse(fs.readFileSync('app.json', 'utf8'));
+              config.expo.version = '$VERSION_NAME';
+              config.expo.android.versionCode = $SPLIT_CODE;
+              fs.writeFileSync('app.json', JSON.stringify(config, null, 2) + '\n');
+            "
+            npx expo prebuild --platform android --no-install
+            python3 tools/patch-release-signing.py
+            (cd android && ./gradlew assembleRelease -PreactNativeArchitectures=$ABI)
 
-          # DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION is excluded deliberately:
-          # it is a self-signature permission AndroidX Core auto-injects to
-          # emulate Android 13's RECEIVER_NOT_EXPORTED flag on older API
-          # levels (ContextCompat.registerReceiver()) - scoped to this app's
-          # own package, unusable by any other app, invisible in Play
-          # Store's permission listing.
-          #
-          # INTERNET is the one permission this app is allowed to declare -
-          # it backs the opt-in, off-by-default Umami analytics toggle in
-          # Settings (see src/platform/analytics.*.ts). Checked by name, not
-          # just count, so a future dependency swapping in some other
-          # permission while still totalling one would not slip through.
-          PERM_LIST=$(aapt dump permissions "$APK" | grep 'uses-permission' \
-            | grep -v 'DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION' \
-            | sed -n "s/.*name='\([^']*\)'.*/\1/p" | sort)
-          echo "declared permissions:"
-          echo "$PERM_LIST"
-          [ "$PERM_LIST" = "android.permission.INTERNET" ] || {
-            echo "::error::declared permissions were [$PERM_LIST], expected only android.permission.INTERNET"
-            exit 1; }
+            OUT="remindiary-${TAG}-${ABI}.apk"
+            cp android/app/build/outputs/apk/release/app-release.apk "$OUT"
+            tools/verify-release-apk.sh "$OUT" "$SPLIT_CODE" "'$ABI'"
+            echo "::endgroup::"
+          }
 
-          CODE=$(aapt dump badging "$APK" | sed -n "s/.*versionCode='\([0-9]*\)'.*/\1/p")
-          [ "$CODE" = "${{ steps.version.outputs.code }}" ] || {
-            echo "::error::versionCode $CODE != ${{ steps.version.outputs.code }}"; exit 1; }
-
-          # Confirms the signing-config patch actually took effect: the
-          # APK's certificate fingerprint must match the real release
-          # keystore's, not the debug one build.gradle defaults to.
-          APK_FPR=$(apksigner verify --print-certs "$APK" \
-            | sed -n 's/.*SHA-256 digest: //p' | head -1 | tr 'A-F' 'a-f')
-          KS_FPR=$(keytool -list -v -keystore "$RUNNER_TEMP/keystore.jks" \
-            -storepass "$KS_PASS" -alias "$KEY_ALIAS" \
-            | sed -n 's/.*SHA256: *//p' | head -1 | tr -d ':' | tr 'A-F' 'a-f')
-          [ -n "$APK_FPR" ] && [ "$APK_FPR" = "$KS_FPR" ] || {
-            echo "::error::APK is not signed with the release keystore (signing patch did not apply)"
-            echo "apksigner: $APK_FPR"
-            echo "keystore:  $KS_FPR"
-            exit 1; }
-
-          aapt dump badging "$APK" | grep -E '^package|native-code'
+          build_split armeabi-v7a 1
+          build_split arm64-v8a 2
 
       - name: Publish release
         uses: softprops/action-gh-release@v2
@@ -268,5 +234,7 @@ jobs:
           files: |
             remindiary-${{ steps.version.outputs.tag }}.apk
             remindiary-${{ steps.version.outputs.tag }}.aab
+            remindiary-${{ steps.version.outputs.tag }}-armeabi-v7a.apk
+            remindiary-${{ steps.version.outputs.tag }}-arm64-v8a.apk
           generate_release_notes: true
           prerelease: ${{ contains(steps.version.outputs.tag, '-') }}
