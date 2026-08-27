@@ -119,15 +119,23 @@ Builds:
   # them externally with apksigner, instead of letting Gradle sign - the two
   # sides only land at the same byte length if both apply it.
   #
-  # One .so (libreact_codegen_rnscreens.so) had a further, unexplained
-  # structural difference beyond the build-id (a real 16-byte size gap,
-  # confirmed via direct extraction and comparison) - not yet resolved by
-  # either fix above. Whether it survives is something the next real CI
-  # pipeline will show.
-  - versionName: 1.0.3
-    versionCode: 100039991
-    commit: 9d8e85f04965df6cf19da6ff70e0f871befd3ce5
-    binary: https://github.com/grantstephens/ReminDiary/releases/download/v1.0.3/remindiary-v1.0.3-armeabi-v7a.apk
+  # The last difference (libreact_codegen_rnscreens.so + libreact_codegen_
+  # safeareacontext.so) turned out to be neither structural nor mysterious:
+  # the react-android prefab headers are consumed from $GRADLE_USER_HOME/
+  # caches/..., and that absolute path is baked into the .so via __FILE__ in
+  # propsConversions.h. F-Droid's buildserver sets GRADLE_USER_HOME=/
+  # home/vagrant/.gradle (this CI's .gitlab-ci.yml does the same); GitHub's
+  # runner defaults to /home/runner/.gradle. Byte-level set-diff of both
+  # libs' .rodata strings proved that path was the ONLY content difference -
+  # the apparent 16-byte size gap and 400k shifted bytes were pure cascade
+  # from the 1-byte-longer /home/vagrant string landing in a different LLD
+  # merged-string-table position. Fixed on the release.yml side by setting
+  # GRADLE_USER_HOME=/home/vagrant/.gradle for the whole release job - the
+  # buildserver side is canonical and can't be changed from a recipe.
+  - versionName: 1.0.4
+    versionCode: 100049991
+    commit: d3827d814a7b8339fa448f4738f760730471cdf1
+    binary: https://github.com/grantstephens/ReminDiary/releases/download/v1.0.4/remindiary-v1.0.4-armeabi-v7a.apk
     srclibs:
       - reproducible-apk-tools@v0.3.0
     sudo:
@@ -174,10 +182,10 @@ Builds:
       - node_modules/
     output: android/app/build/outputs/apk/release/*.apk
 
-  - versionName: 1.0.3
-    versionCode: 100039992
-    commit: 9d8e85f04965df6cf19da6ff70e0f871befd3ce5
-    binary: https://github.com/grantstephens/ReminDiary/releases/download/v1.0.3/remindiary-v1.0.3-arm64-v8a.apk
+  - versionName: 1.0.4
+    versionCode: 100049992
+    commit: d3827d814a7b8339fa448f4738f760730471cdf1
+    binary: https://github.com/grantstephens/ReminDiary/releases/download/v1.0.4/remindiary-v1.0.4-arm64-v8a.apk
     srclibs:
       - reproducible-apk-tools@v0.3.0
     sudo:
@@ -267,5 +275,5 @@ VercodeOperation:
   - '%c * 10 + 1'
   - '%c * 10 + 2'
 UpdateCheckData: fdroid-version.txt|versionCode=([0-9]+)|.|versionName=(.+)
-CurrentVersion: 1.0.3
-CurrentVersionCode: 100039992
+CurrentVersion: 1.0.4
+CurrentVersionCode: 100049992
