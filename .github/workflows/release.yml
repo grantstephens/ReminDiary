@@ -86,11 +86,13 @@ jobs:
       # confirmed to break that (every file in the APK differed - dex,
       # native libs, resources.arsc, AndroidManifest.xml) before this was
       # pinned to match.
+      # No cache: npm here - actions/setup-node's cache lookup only
+      # supports paths relative to $GITHUB_WORKSPACE, which stays empty now
+      # that the checkout happens elsewhere (see the clone step above).
+      # Pure speed optimization, irrelevant to the reproducible-build goal.
       - uses: actions/setup-node@v4
         with:
           node-version: '24.19.0'
-          cache: npm
-          cache-dependency-path: /home/vagrant/build/xyz.hub13.remindiary/package-lock.json
       - run: npm ci
 
       # Matches F-Droid's buildserver's OpenJDK 21, for the same
