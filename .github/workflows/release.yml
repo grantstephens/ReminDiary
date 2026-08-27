@@ -90,6 +90,7 @@ jobs:
         with:
           node-version: '24.19.0'
           cache: npm
+          cache-dependency-path: /home/vagrant/build/xyz.hub13.remindiary/package-lock.json
       - run: npm ci
 
       # Matches F-Droid's buildserver's OpenJDK 21, for the same
