@@ -53,21 +53,28 @@ jobs:
       run:
         working-directory: /home/vagrant/build/xyz.hub13.remindiary
     steps:
-      - uses: actions/checkout@v5
-        with:
-          ref: ${{ github.event.inputs.tag || github.ref }}
-
-      # Explicit working-directory override: the job's default (above)
-      # doesn't exist yet at this point in the job, and the runner tries
-      # to start this step's shell IN that directory regardless of what
-      # the command itself references, which fails before the command
-      # ever runs if it's missing - confirmed by a real CI failure here.
-      - name: Relocate checkout to match F-Droid's buildserver path
+      # A direct git clone into the target path, not actions/checkout (to
+      # the default location) followed by cp -a: cp preserves this runner's
+      # own filesystem enumeration/timestamps rather than reproducing what
+      # a real git checkout at that exact path produces, and both native
+      # linking and resource packing can be sensitive to file iteration
+      # order - the cp -a version left native .so libs and resources.arsc
+      # still differing after every other toolchain/path/config fix landed.
+      #
+      # Explicit working-directory override on this step: the job's default
+      # (above) doesn't exist yet at this point, and the runner tries to
+      # start every step's shell IN that directory regardless of what the
+      # step's own command references, which fails before the command ever
+      # runs if it's missing - confirmed by a real CI failure earlier.
+      - name: Clone directly to F-Droid's buildserver path
         working-directory: ${{ github.workspace }}
         run: |
           sudo mkdir -p /home/vagrant/build
           sudo chown -R "$(id -un):$(id -gn)" /home/vagrant
-          cp -a "${{ github.workspace }}" /home/vagrant/build/xyz.hub13.remindiary
+          git clone --quiet "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" \
+            /home/vagrant/build/xyz.hub13.remindiary
+          cd /home/vagrant/build/xyz.hub13.remindiary
+          git checkout --quiet "${{ github.event.inputs.tag || github.ref_name }}"
 
       # Matches F-Droid's buildserver exactly (Node from Debian forky via
       # `apt-get install -t forky nodejs`, currently 24.19.0), not this
