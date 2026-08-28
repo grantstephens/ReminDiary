@@ -135,7 +135,7 @@ Builds:
   - versionName: 1.0.4
     versionCode: 100049991
     commit: d3827d814a7b8339fa448f4738f760730471cdf1
-    binary: https://github.com/grantstephens/ReminDiary/releases/download/v1.0.4/remindiary-v1.0.4-armeabi-v7a.apk
+    binary: https://github.com/grantstephens/ReminDiary/releases/download/v%v/remindiary-v%v-armeabi-v7a.apk
     srclibs:
       - reproducible-apk-tools@v0.3.0
     sudo:
@@ -185,7 +185,7 @@ Builds:
   - versionName: 1.0.4
     versionCode: 100049992
     commit: d3827d814a7b8339fa448f4738f760730471cdf1
-    binary: https://github.com/grantstephens/ReminDiary/releases/download/v1.0.4/remindiary-v1.0.4-arm64-v8a.apk
+    binary: https://github.com/grantstephens/ReminDiary/releases/download/v%v/remindiary-v%v-arm64-v8a.apk
     srclibs:
       - reproducible-apk-tools@v0.3.0
     sudo:
