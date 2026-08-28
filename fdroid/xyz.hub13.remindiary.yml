@@ -102,39 +102,46 @@ Builds:
   #    .note.gnu.build-id (a 20-byte hash computed mid-link, before
   #    debug-symbol stripping - not meaningful once symbols are stripped, and
   #    not guaranteed to match even for byte-identical final output).
-  #    tools/zero-elf-build-id.py zeroes it in place on both sides rather
-  #    than trying to make its computation deterministic.
-  #
-  # Both fixes still require the packaging-level zipalign fix below: fixing
-  # content alone doesn't help unless the two APKs' local-entry regions also
-  # land at the same byte length, which is what apksigcopier's signature
-  # transplant actually requires to succeed (confirmed via a real failure:
-  # "APK Signing Block offset < central directory offset", traced to
-  # fdroidserver's own patch_v2_sig() requiring exactly this).
-  # dev.djara.wafrn_rn.yml (a real, merged fdroiddata recipe combining ABI
-  # split with reproducible builds for an Expo/RN app) uses the same
-  # srclibs/postbuild zipalign pattern below - copied rather than reinvented.
-  # release.yml applies the identical zipalign normalization (same tool, same
-  # tag) to its own from-source build of the reference APKs before signing
-  # them externally with apksigner, instead of letting Gradle sign - the two
-  # sides only land at the same byte length if both apply it.
   #
   # The last difference (libreact_codegen_rnscreens.so + libreact_codegen_
   # safeareacontext.so) turned out to be neither structural nor mysterious:
   # the react-android prefab headers are consumed from $GRADLE_USER_HOME/
   # caches/..., and that absolute path is baked into the .so via __FILE__ in
   # propsConversions.h. F-Droid's buildserver sets GRADLE_USER_HOME=/
-  # home/vagrant/.gradle (this CI's .gitlab-ci.yml does the same); GitHub's
-  # runner defaults to /home/runner/.gradle. Byte-level set-diff of both
-  # libs' .rodata strings proved that path was the ONLY content difference -
-  # the apparent 16-byte size gap and 400k shifted bytes were pure cascade
-  # from the 1-byte-longer /home/vagrant string landing in a different LLD
-  # merged-string-table position. Fixed on the release.yml side by setting
-  # GRADLE_USER_HOME=/home/vagrant/.gradle for the whole release job - the
-  # buildserver side is canonical and can't be changed from a recipe.
-  - versionName: 1.0.4
-    versionCode: 100049991
-    commit: d3827d814a7b8339fa448f4738f760730471cdf1
+  # home/vagrant/.gradle; GitHub's runner defaults to /home/runner/.gradle.
+  # Byte-level set-diff of both libs' .rodata strings proved that path was
+  # the ONLY content difference - the apparent 16-byte size gap and 400k
+  # shifted bytes were pure cascade from the 1-byte-longer /home/vagrant
+  # string landing in a different LLD merged-string-table position.
+  #
+  # Both .so issues are now fixed *in source*, not in this recipe: the app
+  # repo's plugins/reproducible-builds.gradle (installed into the generated
+  # android/ tree on every `expo prebuild` by the config plugin in
+  # plugins/reproducible-builds.js, since android/ is never committed)
+  # applies -ffile-prefix-map over both the repo root and the actual
+  # GRADLE_USER_HOME, and registers a gradle task that llvm-strips
+  # .note.gnu.build-id from every merged .so. Adapted from
+  # dev.djara.wafrn_rn's android/reproducible-builds.gradle - the merged
+  # fdroiddata precedent for an Expo/RN app with reproducible builds, which
+  # solves the same two classes of non-determinism the same way. Wafrn can
+  # commit android/ directly; the config-plugin indirection is the
+  # managed-workflow equivalent of the same in-source fix.
+  #
+  # The remaining packaging-level zipalign fix below is still required:
+  # fixing content alone doesn't help unless the two APKs' local-entry
+  # regions also land at the same byte length, which is what apksigcopier's
+  # signature transplant actually requires to succeed (confirmed via a real
+  # failure: "APK Signing Block offset < central directory offset", traced
+  # to fdroidserver's own patch_v2_sig() requiring exactly this).
+  # dev.djara.wafrn_rn.yml uses the same srclibs/postbuild zipalign pattern
+  # below - copied rather than reinvented. release.yml applies the identical
+  # zipalign normalization (same tool, same tag) to its own from-source
+  # build of the reference APKs before signing them externally with
+  # apksigner, instead of letting Gradle sign - the two sides only land at
+  # the same byte length if both apply it.
+  - versionName: 1.0.5
+    versionCode: 100059991
+    commit: b1868eb65587be217257750f14129899f5448f9b
     binary: https://github.com/grantstephens/ReminDiary/releases/download/v%v/remindiary-v%v-armeabi-v7a.apk
     srclibs:
       - reproducible-apk-tools@v0.3.0
@@ -169,7 +176,6 @@ Builds:
       - cd android/app
       - gradle -PreactNativeArchitectures=armeabi-v7a assembleRelease -PreactNativeDevServerIp=localhost
     postbuild:
-      - python3 tools/zero-elf-build-id.py $$OUT$$
       - mv $$OUT$$ unaligned.apk
       - $$reproducible-apk-tools$$/zipalign.py --page-size 16 --pad-like-apksigner --replace unaligned.apk $$OUT$$
     scanignore:
@@ -182,9 +188,9 @@ Builds:
       - node_modules/
     output: android/app/build/outputs/apk/release/*.apk
 
-  - versionName: 1.0.4
-    versionCode: 100049992
-    commit: d3827d814a7b8339fa448f4738f760730471cdf1
+  - versionName: 1.0.5
+    versionCode: 100059992
+    commit: b1868eb65587be217257750f14129899f5448f9b
     binary: https://github.com/grantstephens/ReminDiary/releases/download/v%v/remindiary-v%v-arm64-v8a.apk
     srclibs:
       - reproducible-apk-tools@v0.3.0
@@ -210,7 +216,6 @@ Builds:
       - cd android/app
       - gradle -PreactNativeArchitectures=arm64-v8a assembleRelease -PreactNativeDevServerIp=localhost
     postbuild:
-      - python3 tools/zero-elf-build-id.py $$OUT$$
       - mv $$OUT$$ unaligned.apk
       - $$reproducible-apk-tools$$/zipalign.py --page-size 16 --pad-like-apksigner --replace unaligned.apk $$OUT$$
     scanignore:
@@ -275,5 +280,5 @@ VercodeOperation:
   - '%c * 10 + 1'
   - '%c * 10 + 2'
 UpdateCheckData: fdroid-version.txt|versionCode=([0-9]+)|.|versionName=(.+)
-CurrentVersion: 1.0.4
-CurrentVersionCode: 100049992
+CurrentVersion: 1.0.5
+CurrentVersionCode: 100059992
