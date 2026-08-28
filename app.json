@@ -37,7 +37,8 @@
     "plugins": [
       "expo-sqlite",
       "expo-sharing",
-      "expo-asset"
+      "expo-asset",
+      "./plugins/reproducible-builds.js"
     ]
   }
 }

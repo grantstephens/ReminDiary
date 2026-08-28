@@ -42,14 +42,16 @@ jobs:
     needs: check
     runs-on: ubuntu-latest
     env:
-      # Match F-Droid's buildserver gradle home exactly: the react-android
-      # prefab headers are consumed from $GRADLE_USER_HOME/caches/..., and
-      # that absolute path is baked into the codegen .so files (via __FILE__
-      # in propsConversions.h). Confirmed by byte-level diff of F-Droid's
-      # own CI build vs this workflow's: the ONLY content difference in
-      # libreact_codegen_rnscreens.so / libreact_codegen_safeareacontext.so
-      # was /home/vagrant/.gradle vs this runner's default /home/runner/.gradle
-      # (every other byte of both APKs already matched).
+      # Defense in depth for .so reproducibility: the primary fix is now
+      # compile-time - plugins/reproducible-builds.gradle maps both the repo
+      # root and GRADLE_USER_HOME out of __FILE__ via -ffile-prefix-map,
+      # making the embedded paths environment-independent. Confirmed by
+      # byte-level diff of F-Droid's own CI build vs this workflow's: the
+      # ONLY content difference in libreact_codegen_rnscreens.so /
+      # libreact_codegen_safeareacontext.so was /home/vagrant/.gradle vs
+      # this runner's default /home/runner/.gradle (every other byte of
+      # both APKs already matched). Keeping the matching gradle home anyway
+      # in case another path-embedding source turns up later.
       GRADLE_USER_HOME: /home/vagrant/.gradle
     # Native compilers commonly embed the absolute source path into debug
     # info inside compiled .so files - confirmed by a real reproducibility
@@ -350,13 +352,6 @@ jobs:
               -PreactNativeArchitectures=$ABI -PreactNativeDevServerIp=localhost)
 
             UNSIGNED=android/app/build/outputs/apk/release/app-release-unsigned.apk
-
-            # The native linker's .note.gnu.build-id is computed mid-link,
-            # before debug-symbol stripping, so it can (and does, confirmed
-            # by a real diff) differ between two byte-identical builds. Not
-            # meaningful once symbols are stripped, so zeroed rather than
-            # fixed to a particular hash - both sides zero it the same way.
-            python3 tools/zero-elf-build-id.py "$UNSIGNED"
 
             mv "$UNSIGNED" "$UNSIGNED.unaligned"
             "$RAT_DIR/zipalign.py" --page-size 16 --pad-like-apksigner --replace \
