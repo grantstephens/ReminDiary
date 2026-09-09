@@ -3,7 +3,9 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { useJournal } from '../JournalContext';
 import {
+  addDays,
   dayOf,
+  displayDate,
   displayDayMonth,
   monthOf,
   today,
@@ -11,6 +13,7 @@ import {
   type JournalDate,
 } from '../domain/date';
 import type { Entry } from '../domain/entry';
+import { FALLBACK_PERIODS } from '../domain/fallbackMemory';
 import { notify } from '../platform/confirm';
 import { useTheme } from '../ThemeContext';
 import type { Theme } from '../theme';
@@ -38,6 +41,7 @@ export function MemoriesScreen() {
   const { theme } = useTheme();
   const styles = createStyles(theme);
   const [shown, setShown] = useState<Entry[]>([]);
+  const [fallback, setFallback] = useState<{ entry: Entry; label: string } | null>(null);
   const [day, setDay] = useState<JournalDate>(() => today(now()));
 
   // revision is the refresh trigger, not screen focus. Nothing but this app
@@ -47,17 +51,39 @@ export function MemoriesScreen() {
     let cancelled = false;
     const current = today(now());
     setDay(current);
-    store
-      .onThisDay(monthOf(current), dayOf(current))
-      .then((found) => {
+
+    (async () => {
+      try {
+        const found = await store.onThisDay(monthOf(current), dayOf(current));
         if (cancelled) return;
         // onThisDay includes the current year; the whole point of this screen
         // is previous years, so drop it here.
-        setShown(found.filter((e) => yearOf(e.date) < yearOf(current)));
-      })
-      .catch((err: unknown) => {
+        const years = found.filter((e) => yearOf(e.date) < yearOf(current));
+        setShown(years);
+        if (years.length > 0) {
+          setFallback(null);
+          return;
+        }
+
+        // No anniversary at all — either the account isn't a year old yet, or
+        // this exact month/day was never written in any year present. Walk
+        // the ladder largest-first and show the first period with a real
+        // entry, so there is still something interesting to see.
+        for (const period of FALLBACK_PERIODS) {
+          const candidate = addDays(current, -period.days);
+          const found2 = await store.get(candidate);
+          if (cancelled) return;
+          if (found2 !== null) {
+            setFallback({ entry: found2, label: period.label });
+            return;
+          }
+        }
+        setFallback(null);
+      } catch (err) {
         if (!cancelled) void notify('Could not read your memories', (err as Error).message);
-      });
+      }
+    })();
+
     return () => {
       cancelled = true;
     };
@@ -65,11 +91,7 @@ export function MemoriesScreen() {
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.list}>
-      {shown.length === 0 ? (
-        <Text testID="memories-empty" style={styles.empty}>
-          {emptyMemoriesText(day)}
-        </Text>
-      ) : (
+      {shown.length > 0 ? (
         shown.map((e) => (
           <Pressable
             key={e.date}
@@ -83,6 +105,21 @@ export function MemoriesScreen() {
             <Text style={styles.body}>{e.body}</Text>
           </Pressable>
         ))
+      ) : fallback !== null ? (
+        <Pressable
+          testID="memories-fallback"
+          style={styles.item}
+          onPress={() => openWrite(fallback.entry.date)}
+        >
+          <Text testID="memories-fallback-heading" style={styles.heading}>
+            {`${displayDate(fallback.entry.date)} — ${fallback.label}`}
+          </Text>
+          <Text style={styles.body}>{fallback.entry.body}</Text>
+        </Pressable>
+      ) : (
+        <Text testID="memories-empty" style={styles.empty}>
+          {emptyMemoriesText(day)}
+        </Text>
       )}
     </ScrollView>
   );

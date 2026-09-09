@@ -172,3 +172,67 @@ test('pluralises the year label', () => {
   expect(yearsAgoLabel(2)).toBe('2 years ago');
   expect(yearsAgoLabel(9)).toBe('9 years ago');
 });
+
+describe('fallback ladder', () => {
+  test('shows the largest available period when there is no anniversary', async () => {
+    await store.putAll([
+      entry('2031-06-20', '60 days ago'), // 60 days before 2031-08-19
+      entry('2031-08-12', '7 days ago'), // 7 days before 2031-08-19
+    ]);
+    await renderMemories();
+    await waitFor(() => expect(screen.getByText('60 days ago')).toBeTruthy());
+
+    expect(screen.queryByText('7 days ago')).toBeNull();
+    expect(screen.getByTestId('memories-fallback-heading').props.children).toBe(
+      'Fri 20 Jun 2031 — 2 months ago',
+    );
+  });
+
+  test('falls back even when older, unrelated data exists, if this exact day was always skipped', async () => {
+    await store.putAll([
+      entry('2028-01-01', 'a different month and day entirely'),
+      entry('2031-07-20', '30 days ago'), // 30 days before 2031-08-19
+    ]);
+    await renderMemories();
+    await waitFor(() => expect(screen.getByText('30 days ago')).toBeTruthy());
+    expect(screen.getByTestId('memories-fallback-heading').props.children).toBe(
+      'Sun 20 Jul 2031 — 1 month ago',
+    );
+  });
+
+  test('falls through to the empty state when no ladder period has an entry', async () => {
+    await renderMemories();
+    await waitFor(() => expect(screen.getByTestId('memories-empty')).toBeTruthy());
+    expect(screen.queryByTestId('memories-fallback-heading')).toBeNull();
+  });
+
+  test('a real anniversary takes priority over the fallback ladder', async () => {
+    await store.putAll([
+      entry('2030-08-19', 'last year'),
+      entry('2031-08-12', 'fallback candidate'),
+    ]);
+    await renderMemories();
+    await waitFor(() => expect(screen.getByText('last year')).toBeTruthy());
+    expect(screen.queryByText('fallback candidate')).toBeNull();
+    expect(screen.queryByTestId('memories-fallback-heading')).toBeNull();
+  });
+
+  test('tapping the fallback entry asks to open it for editing', async () => {
+    await store.putAll([entry('2031-07-20', '30 days ago')]);
+    let latest: JournalValue['openDate'] = null;
+    await render(
+      <ThemeProvider>
+        <JournalProvider store={store} now={now}>
+          <MemoriesScreen />
+          <OpenDateProbe onReady={(value) => { latest = value; }} />
+        </JournalProvider>
+      </ThemeProvider>,
+    );
+    await waitFor(() => expect(screen.getByText('30 days ago')).toBeTruthy());
+
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('memories-fallback'));
+    });
+    expect(latest!.date).toBe('2031-07-20');
+  });
+});
