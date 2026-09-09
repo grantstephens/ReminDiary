@@ -139,9 +139,9 @@ Builds:
   # build of the reference APKs before signing them externally with
   # apksigner, instead of letting Gradle sign - the two sides only land at
   # the same byte length if both apply it.
-  - versionName: 1.0.5
-    versionCode: 100059991
-    commit: b1868eb65587be217257750f14129899f5448f9b
+  - versionName: 1.0.6
+    versionCode: 100069991
+    commit: 45745c9a59ce558c4f93b9097be298d70231acea
     binary: https://github.com/grantstephens/ReminDiary/releases/download/v%v/remindiary-v%v-armeabi-v7a.apk
     srclibs:
       - reproducible-apk-tools@v0.3.0
@@ -188,9 +188,9 @@ Builds:
       - node_modules/
     output: android/app/build/outputs/apk/release/*.apk
 
-  - versionName: 1.0.5
-    versionCode: 100059992
-    commit: b1868eb65587be217257750f14129899f5448f9b
+  - versionName: 1.0.6
+    versionCode: 100069992
+    commit: 45745c9a59ce558c4f93b9097be298d70231acea
     binary: https://github.com/grantstephens/ReminDiary/releases/download/v%v/remindiary-v%v-arm64-v8a.apk
     srclibs:
       - reproducible-apk-tools@v0.3.0
@@ -280,5 +280,5 @@ VercodeOperation:
   - '%c * 10 + 1'
   - '%c * 10 + 2'
 UpdateCheckData: fdroid-version.txt|versionCode=([0-9]+)|.|versionName=(.+)
-CurrentVersion: 1.0.5
-CurrentVersionCode: 100059992
+CurrentVersion: 1.0.6
+CurrentVersionCode: 100069992
