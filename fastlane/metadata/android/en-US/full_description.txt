@@ -5,5 +5,6 @@ Everything stays on your device. There is no account and no sync. Entries export
 * One entry per calendar date
 * Automatic reveal of past entries on the same date in previous years
 * CSV export and import
+* Restores itself on a new device via Android's own backup system, not any account or service of ours
 * Light and dark themes, following the system by default
 * A single Android permission (INTERNET), used only by the opt-in analytics toggle
