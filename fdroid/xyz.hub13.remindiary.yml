@@ -1,11 +1,13 @@
-# Annotated copy of the recipe submitted to fdroiddata as
+# Annotated copy of the recipe merged into fdroiddata as
 # metadata/xyz.hub13.remindiary.yml (MR !46769 against
-# https://gitlab.com/fdroid/fdroiddata). The canonical, comment-stripped
-# version lives there and on the fdroiddata fork branch; this copy keeps
-# the reasoning behind each real, CI-verified decision for future
-# maintenance. Every claim below has been confirmed against a real
-# fdroiddata CI pipeline, not guessed - keep this copy in sync whenever
-# the pushed recipe changes.
+# https://gitlab.com/fdroid/fdroiddata, merged as commit f1394643d).
+# Follow-up MR !49153 repoints the pinned v1.0.6 commit at the one
+# carrying the per-ABI changelogs (see below). The canonical,
+# comment-stripped version lives there and on the fdroiddata fork
+# branch; this copy keeps the reasoning behind each real, CI-verified
+# decision for future maintenance. Every claim below has been confirmed
+# against a real fdroiddata CI pipeline, not guessed - keep this copy in
+# sync whenever the pushed recipe changes.
 
 # Note, not Writing - pushed back initially (Writing's official description
 # explicitly says "journaling"), but there's no dedicated Journal category
@@ -141,7 +143,7 @@ Builds:
   # the same byte length if both apply it.
   - versionName: 1.0.6
     versionCode: 100069991
-    commit: 45745c9a59ce558c4f93b9097be298d70231acea
+    commit: 72dfb880bf1659cb30b6c10bc1093f66788f8dac
     binary: https://github.com/grantstephens/ReminDiary/releases/download/v%v/remindiary-v%v-armeabi-v7a.apk
     srclibs:
       - reproducible-apk-tools@v0.3.0
@@ -190,7 +192,7 @@ Builds:
 
   - versionName: 1.0.6
     versionCode: 100069992
-    commit: 45745c9a59ce558c4f93b9097be298d70231acea
+    commit: 72dfb880bf1659cb30b6c10bc1093f66788f8dac
     binary: https://github.com/grantstephens/ReminDiary/releases/download/v%v/remindiary-v%v-arm64-v8a.apk
     srclibs:
       - reproducible-apk-tools@v0.3.0
