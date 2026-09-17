@@ -1,0 +1,3 @@
+No user-facing changes. F-Droid packaging fixes: a dedicated high-resolution
+icon so the app's detail page isn't blurry, and the release process now
+refuses to tag a version without a matching "What's New" note.
