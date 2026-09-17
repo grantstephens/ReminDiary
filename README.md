@@ -10,6 +10,7 @@ screen-view counts — never entry content, dates, or anything else you've writt
 
 [![Licence: GPL v3](https://img.shields.io/badge/Licence-GPLv3-blue.svg)](LICENSE)
 [![Release](https://img.shields.io/github/v/release/grantstephens/ReminDiary?include_prereleases)](https://github.com/grantstephens/ReminDiary/releases)
+[![F-Droid](https://img.shields.io/f-droid/v/xyz.hub13.remindiary)](https://f-droid.org/packages/xyz.hub13.remindiary/)
 
 Built with [React Native](https://reactnative.dev) (Expo), targeting Android and the web.
 
@@ -20,6 +21,10 @@ Built with [React Native](https://reactnative.dev) (Expo), targeting Android and
 </p>
 
 ## Installing
+
+### On F-Droid
+
+[<img src="https://fdroid.gitlab.io/artwork/badge/get-it-on.png" alt="Get it on F-Droid" height="80">](https://f-droid.org/packages/xyz.hub13.remindiary/)
 
 ### With Obtainium (recommended)
 
