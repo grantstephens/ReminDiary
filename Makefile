@@ -26,13 +26,19 @@ web: ## Browser build, the no-device iteration story
 android: ## Expo dev server, opening on a connected device
 	npm run android
 
-prepare-release: ## Write+commit fdroid-version.txt for TAG=vX.Y.Z (does not tag or push)
-	@test -n "$(TAG)" || (echo "Usage: make prepare-release TAG=v1.0.1" && exit 1)
+prepare-release: ## Write+commit fdroid-version.txt + F-Droid changelogs for TAG=vX.Y.Z CHANGELOG=path/to/notes.txt (does not tag or push)
+	@test -n "$(TAG)" || (echo "Usage: make prepare-release TAG=v1.0.1 CHANGELOG=path/to/notes.txt" && exit 1)
+	@test -n "$(CHANGELOG)" || (echo "Usage: make prepare-release TAG=v1.0.1 CHANGELOG=path/to/notes.txt" && exit 1)
+	@test -f "$(CHANGELOG)" || (echo "$(CHANGELOG): no such file - write the release notes first" && exit 1)
 	@eval "$$(tools/compute-version.sh $(TAG))"; \
-	printf 'versionName=%s\nversionCode=%s\n' "$$versionName" "$$versionCode" > fdroid-version.txt
+	printf 'versionName=%s\nversionCode=%s\n' "$$versionName" "$$versionCode" > fdroid-version.txt; \
+	v7a=$$(( versionCode * 10 + 1 )); \
+	v8a=$$(( versionCode * 10 + 2 )); \
+	cp "$(CHANGELOG)" "fastlane/metadata/android/en-US/changelogs/$$v7a.txt"; \
+	cp "$(CHANGELOG)" "fastlane/metadata/android/en-US/changelogs/$$v8a.txt"
 	@cat fdroid-version.txt
-	git add fdroid-version.txt
-	git commit -m "chore: prepare fdroid-version.txt for $(TAG)"
+	git add fdroid-version.txt fastlane/metadata/android/en-US/changelogs/
+	git commit -m "chore: prepare fdroid-version.txt + changelog for $(TAG)"
 	@echo
 	@echo "Committed. Now create and push the tag:"
 	@echo "  git tag $(TAG)"
