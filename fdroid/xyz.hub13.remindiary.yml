@@ -2,7 +2,8 @@
 # metadata/xyz.hub13.remindiary.yml (MR !46769 against
 # https://gitlab.com/fdroid/fdroiddata, merged as commit f1394643d).
 # Follow-up MR !49153 repoints the pinned v1.0.6 commit at the one
-# carrying the per-ABI changelogs (see below). The canonical,
+# carrying the per-ABI changelogs and, in a later push to the same MR,
+# the dedicated high-res fastlane icon (see below). The canonical,
 # comment-stripped version lives there and on the fdroiddata fork
 # branch; this copy keeps the reasoning behind each real, CI-verified
 # decision for future maintenance. Every claim below has been confirmed
@@ -143,7 +144,7 @@ Builds:
   # the same byte length if both apply it.
   - versionName: 1.0.6
     versionCode: 100069991
-    commit: 72dfb880bf1659cb30b6c10bc1093f66788f8dac
+    commit: 8967e03f2c80a56e5d00e64cc615c1655b3e58cb
     binary: https://github.com/grantstephens/ReminDiary/releases/download/v%v/remindiary-v%v-armeabi-v7a.apk
     srclibs:
       - reproducible-apk-tools@v0.3.0
@@ -192,7 +193,7 @@ Builds:
 
   - versionName: 1.0.6
     versionCode: 100069992
-    commit: 72dfb880bf1659cb30b6c10bc1093f66788f8dac
+    commit: 8967e03f2c80a56e5d00e64cc615c1655b3e58cb
     binary: https://github.com/grantstephens/ReminDiary/releases/download/v%v/remindiary-v%v-arm64-v8a.apk
     srclibs:
       - reproducible-apk-tools@v0.3.0
