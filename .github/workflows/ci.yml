@@ -10,8 +10,8 @@ jobs:
     name: tsc + jest
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           # Matches the pin in mise.toml. A drifted Node version here has
           # already caused real test failures on this project — keep both in
