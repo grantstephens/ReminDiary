@@ -1,0 +1,2 @@
+No user-facing changes. Internal fix so F-Droid's reproducible build
+matches this release's Gradle cache path.

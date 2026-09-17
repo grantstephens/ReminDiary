@@ -1,0 +1,3 @@
+New: when there's no entry from exactly a year ago for today's date,
+Memories now shows the closest interesting earlier one instead (a week,
+a month, a few months back) rather than showing nothing.
