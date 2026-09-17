@@ -174,5 +174,13 @@ rsvg-convert -w 1024 -h 1024 icon.svg -o splash-icon.png
 rsvg-convert -w 1024 -h 1024 icon-foreground.svg -o android-icon-foreground.png
 rsvg-convert -w 1024 -h 1024 icon-monochrome.svg -o android-icon-monochrome.png
 rsvg-convert -w 48 -h 48 icon.svg -o favicon.png
+rsvg-convert -w 512 -h 512 icon.svg -o ../fastlane/metadata/android/en-US/images/icon.png
 ```
+
+The last file is F-Droid-specific: fdroidserver's `insert_localized_app_metadata()` reads
+`fastlane/metadata/android/<locale>/images/icon.png` as a dedicated high-resolution icon
+(its `iconv2` field) separate from whatever it extracts from the APK itself. Without it,
+F-Droid falls back to an APK-extracted, density-capped icon and upscales that for the
+large icon on the app's detail page — visibly blurry. 512×512 matches the same convention
+Google Play's own hi-res icon uses.
 
