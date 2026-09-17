@@ -1,0 +1,43 @@
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      # Expo pins react/react-native/navigation/vector-icons to specific
+      # compatible versions per SDK release (see AGENTS.md) - bumping one
+      # without the others is exactly the kind of drift that breaks the
+      # build, so these land as one PR rather than racing each other.
+      expo-ecosystem:
+        patterns:
+          - "expo"
+          - "expo-*"
+          - "babel-preset-expo"
+          - "jest-expo"
+          - "react"
+          - "react-dom"
+          - "react-native"
+          - "react-native-*"
+          - "@react-navigation/*"
+          - "@expo/vector-icons"
+      dev-tooling:
+        patterns:
+          - "typescript"
+          - "@types/*"
+          - "jest"
+          - "@testing-library/*"
+          - "fake-indexeddb"
+      # Catch-all so nothing ever lands as an individual, ungrouped PR.
+      everything-else:
+        patterns:
+          - "*"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      actions:
+        patterns:
+          - "*"
