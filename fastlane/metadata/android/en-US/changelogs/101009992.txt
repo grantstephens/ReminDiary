@@ -1,0 +1,1 @@
+New streak-protection prompt: when you save today's entry and yesterday is blank, the app now asks if you'd like to write yesterday first. Accepting loads yesterday into the editor; declining continues to Memories as usual.
