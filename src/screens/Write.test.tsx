@@ -118,6 +118,13 @@ test('the save button always says Take Me to Memories →', async () => {
 });
 
 test('saving writes the entry', async () => {
+  // Seed yesterday so the streak prompt doesn't intercept this basic-save test.
+  await store.put({
+    date: '2026-08-18',
+    body: 'yesterday',
+    created: '2026-08-18T12:00:00Z',
+    updated: '2026-08-18T12:00:00Z',
+  });
   await renderWrite(store);
   await fireEvent(screen.getByTestId('write-body'), 'focus');
   await fireEvent.changeText(screen.getByTestId('write-body'), 'a good day');
@@ -132,6 +139,13 @@ test('saving writes the entry', async () => {
 });
 
 test('editing preserves the original created timestamp', async () => {
+  // Seed yesterday so the streak prompt doesn't intercept this edit test.
+  await store.put({
+    date: '2026-08-18',
+    body: 'yesterday',
+    created: '2026-08-18T12:00:00Z',
+    updated: '2026-08-18T12:00:00Z',
+  });
   await store.put({
     date: '2026-08-19',
     body: 'first',
@@ -191,6 +205,112 @@ test('declining the delete keeps the entry', async () => {
     fireEvent.press(screen.getByTestId('write-save'));
   });
   expect((await store.get('2026-08-19'))?.body).toBe('keep me');
+});
+
+test('saving today prompts to write yesterday if it is missing, then loads yesterday', async () => {
+  await renderWrite(store);
+  await fireEvent(screen.getByTestId('write-body'), 'focus');
+  await fireEvent.changeText(screen.getByTestId('write-body'), 'a good day');
+  await act(async () => {
+    fireEvent.press(screen.getByTestId('write-save'));
+  });
+
+  expect(confirm).toHaveBeenCalledWith(
+    "Write yesterday's entry?",
+    "You didn't write anything for Tue 18 Aug 2026. Add it now to keep your streak?",
+  );
+  // Accepting the prompt keeps the user on Write, editing yesterday.
+  await waitFor(() => {
+    expect(screen.getByTestId('write-header').props.children).toBe('Tue 18 Aug 2026');
+  });
+  expect(screen.getByTestId('write-badge').props.children).toBe('');
+  expect(screen.getByTestId('write-body').props.value).toBe('');
+  expect(onSaved).not.toHaveBeenCalled();
+});
+
+test('declining the yesterday prompt continues to Memories as usual', async () => {
+  confirm.mockResolvedValue(false);
+  await renderWrite(store);
+  await fireEvent(screen.getByTestId('write-body'), 'focus');
+  await fireEvent.changeText(screen.getByTestId('write-body'), 'a good day');
+  await act(async () => {
+    fireEvent.press(screen.getByTestId('write-save'));
+  });
+
+  expect(confirm).toHaveBeenCalledWith(
+    "Write yesterday's entry?",
+    "You didn't write anything for Tue 18 Aug 2026. Add it now to keep your streak?",
+  );
+  expect(screen.getByTestId('write-header').props.children).toBe('Wed 19 Aug 2026');
+  expect(onSaved).toHaveBeenCalledWith('2026-08-19');
+});
+
+test('saving today does not prompt when yesterday already has an entry', async () => {
+  await store.put({
+    date: '2026-08-18',
+    body: 'already wrote it',
+    created: '2026-08-18T12:00:00Z',
+    updated: '2026-08-18T12:00:00Z',
+  });
+  await renderWrite(store);
+  await fireEvent(screen.getByTestId('write-body'), 'focus');
+  await fireEvent.changeText(screen.getByTestId('write-body'), 'a good day');
+  await act(async () => {
+    fireEvent.press(screen.getByTestId('write-save'));
+  });
+
+  expect(confirm).not.toHaveBeenCalled();
+  expect(onSaved).toHaveBeenCalledWith('2026-08-19');
+});
+
+test('saving a non-today date does not prompt about the day before it', async () => {
+  await renderWrite(store);
+  await act(async () => {
+    fireEvent.press(screen.getByTestId('write-prev'));
+  });
+  await waitFor(() => {
+    expect(screen.getByTestId('write-header').props.children).toBe('Tue 18 Aug 2026');
+  });
+
+  await fireEvent(screen.getByTestId('write-body'), 'focus');
+  await fireEvent.changeText(screen.getByTestId('write-body'), 'past day');
+  await act(async () => {
+    fireEvent.press(screen.getByTestId('write-save'));
+  });
+
+  expect(confirm).not.toHaveBeenCalled();
+  expect(onSaved).toHaveBeenCalledWith('2026-08-18');
+});
+
+test('declining the yesterday prompt suppresses it for the rest of the session', async () => {
+  confirm.mockResolvedValue(false);
+  await renderWrite(store);
+  await fireEvent(screen.getByTestId('write-body'), 'focus');
+  await fireEvent.changeText(screen.getByTestId('write-body'), 'first');
+  await act(async () => {
+    fireEvent.press(screen.getByTestId('write-save'));
+  });
+  expect(confirm).toHaveBeenCalledTimes(1);
+
+  await fireEvent.changeText(screen.getByTestId('write-body'), 'second edit');
+  await act(async () => {
+    fireEvent.press(screen.getByTestId('write-save'));
+  });
+  expect(confirm).toHaveBeenCalledTimes(1);
+  expect(onSaved).toHaveBeenCalledTimes(2);
+});
+
+test('a silent save with yesterday missing does not prompt', async () => {
+  await renderWrite(store);
+  await fireEvent.changeText(screen.getByTestId('write-body'), 'unsaved');
+  await act(async () => {
+    fireEvent.press(screen.getByTestId('write-prev'));
+  });
+  expect(confirm).not.toHaveBeenCalled();
+  await waitFor(async () => {
+    expect((await store.get('2026-08-19'))?.body).toBe('unsaved');
+  });
+  expect(onSaved).not.toHaveBeenCalled();
 });
 
 test('saving a blank editor on a blank day writes nothing', async () => {

@@ -17,7 +17,7 @@ import {
   today,
   type JournalDate,
 } from '../domain/date';
-import { plannedSave, trimBody } from '../domain/save';
+import { plannedSave, shouldPromptForYesterday, trimBody } from '../domain/save';
 import { confirm, notify } from '../platform/confirm';
 import { onAppHidden } from '../platform/lifecycle';
 import { useTheme } from '../ThemeContext';
@@ -41,6 +41,7 @@ export function WriteScreen() {
   const [text, setText] = useState('');
   const [exists, setExists] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [yesterdayPromptDismissed, setYesterdayPromptDismissed] = useState(false);
   const hideDelay = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // On the web target, tapping the Save button blurs the still-focused
@@ -229,6 +230,31 @@ export function WriteScreen() {
     } catch (err) {
       await notify('Could not save that entry', (err as Error).message);
       return;
+    }
+
+    // Streak-protection prompt: saving today while yesterday is blank is the
+    // moment the streak rule breaks, so offer to backfill before showing Memories.
+    if (isToday && !yesterdayPromptDismissed) {
+      const yesterday = addDays(date, -1);
+      const yesterdayEntry = await store.get(yesterday);
+      if (
+        shouldPromptForYesterday(
+          date,
+          today(now()),
+          yesterdayEntry !== null,
+        )
+      ) {
+        const writeYesterday = await confirm(
+          "Write yesterday's entry?",
+          `You didn't write anything for ${displayDate(yesterday)}. Add it now to keep your streak?`,
+        );
+        if (writeYesterday) {
+          guard.current = null;
+          await show(yesterday);
+          return;
+        }
+        setYesterdayPromptDismissed(true);
+      }
     }
 
     // The soft gate: writing today pays out immediately by revealing Memories,

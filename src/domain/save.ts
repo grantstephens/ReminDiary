@@ -1,3 +1,5 @@
+import type { JournalDate } from './date';
+
 /** What saving the current editor contents would do. */
 export type SaveAction =
   /** Write the editor contents as an entry. */
@@ -19,6 +21,19 @@ export function plannedSave(text: string, exists: boolean): SaveAction {
     return exists ? 'delete' : 'noop';
   }
   return 'write';
+}
+
+/**
+ * shouldPromptForYesterday is true when saving today would leave yesterday
+ * blank — the moment the streak rule is about to break. Keeping it pure lets
+ * the screen ask the question without needing the store in domain tests.
+ */
+export function shouldPromptForYesterday(
+  savedDate: JournalDate,
+  todayDate: JournalDate,
+  yesterdayExists: boolean,
+): boolean {
+  return savedDate === todayDate && !yesterdayExists;
 }
 
 /**

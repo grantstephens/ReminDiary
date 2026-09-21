@@ -1,4 +1,4 @@
-import { plannedSave, trimBody } from './save';
+import { plannedSave, shouldPromptForYesterday, trimBody } from './save';
 
 describe('plannedSave', () => {
   test('writes a non-empty body', () => {
@@ -17,6 +17,24 @@ describe('plannedSave', () => {
   test('does nothing on a blank day', () => {
     expect(plannedSave('', false)).toBe('noop');
     expect(plannedSave('   ', false)).toBe('noop');
+  });
+});
+
+describe('shouldPromptForYesterday', () => {
+  test('prompts when saving today if yesterday has no entry', () => {
+    expect(shouldPromptForYesterday('2026-08-19', '2026-08-19', false)).toBe(true);
+  });
+
+  test('does not prompt when yesterday already exists', () => {
+    expect(shouldPromptForYesterday('2026-08-19', '2026-08-19', true)).toBe(false);
+  });
+
+  test('does not prompt when saving a past date', () => {
+    expect(shouldPromptForYesterday('2026-08-18', '2026-08-19', false)).toBe(false);
+  });
+
+  test('does not prompt when saving a future date', () => {
+    expect(shouldPromptForYesterday('2026-08-20', '2026-08-19', false)).toBe(false);
   });
 });
 
