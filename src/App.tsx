@@ -1,14 +1,22 @@
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import {
+  DarkTheme as NavigationDarkTheme,
+  DefaultTheme as NavigationDefaultTheme,
   NavigationContainer,
   createNavigationContainerRef,
-  type Theme as NavigationTheme,
 } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import {
+  ActivityIndicator,
+  MD3DarkTheme,
+  MD3LightTheme,
+  Text,
+  adaptNavigationTheme,
+} from 'react-native-paper';
 
 import { JournalProvider, useJournal } from './JournalContext';
 import type { UnsavedGuard } from './JournalContext';
@@ -21,35 +29,29 @@ import { WriteScreen } from './screens/Write';
 import { ThemeProvider, useTheme } from './ThemeContext';
 import type { Theme } from './theme';
 
-/** navigationTheme adapts our tokens to react-navigation's own Theme shape. */
-function navigationTheme(theme: Theme): NavigationTheme {
-  return {
-    dark: theme.dark,
-    colors: {
-      primary: theme.accent,
-      background: theme.background,
-      card: theme.surface,
-      text: theme.text,
-      border: theme.border,
-      notification: theme.accent,
-    },
-    fonts: {
-      regular: { fontFamily: 'System', fontWeight: '400' },
-      medium: { fontFamily: 'System', fontWeight: '500' },
-      bold: { fontFamily: 'System', fontWeight: '700' },
-      heavy: { fontFamily: 'System', fontWeight: '900' },
-    },
-  };
-}
+/**
+ * navigationThemes adapts Paper's MD3 palettes to react-navigation's own
+ * Theme shape via Paper's own helper, so the navigator's chrome (background,
+ * the focused-route color) matches the same Material palette everything
+ * else on screen uses. Built once for both modes; AppInner picks a side by
+ * `theme.dark`, since our ThemeContext only ever resolves to MD3LightTheme
+ * or MD3DarkTheme themselves, never a tinted variant.
+ */
+const { LightTheme: NavLightTheme, DarkTheme: NavDarkTheme } = adaptNavigationTheme({
+  reactNavigationLight: NavigationDefaultTheme,
+  reactNavigationDark: NavigationDarkTheme,
+  materialLight: MD3LightTheme,
+  materialDark: MD3DarkTheme,
+});
 
 export type TabName = 'Write' | 'Memories' | 'Settings';
 
 const Tab = createBottomTabNavigator();
 
-const TAB_ICONS: Record<TabName, keyof typeof Ionicons.glyphMap> = {
-  Write: 'create-outline',
+const TAB_ICONS: Record<TabName, keyof typeof MaterialCommunityIcons.glyphMap> = {
+  Write: 'pencil-outline',
   Memories: 'book-outline',
-  Settings: 'settings-outline',
+  Settings: 'cog-outline',
 };
 
 /**
@@ -62,7 +64,7 @@ function withTopInset<P extends object>(Screen: React.ComponentType<P>) {
     return (
       <SafeAreaView
         edges={['top']}
-        style={[styles.safeArea, { backgroundColor: theme.background }]}
+        style={[styles.safeArea, { backgroundColor: theme.colors.background }]}
       >
         <Screen {...props} />
       </SafeAreaView>
@@ -132,8 +134,8 @@ function AppInner() {
     return (
       <>
         <StatusBar style={statusBarStyle} />
-        <View style={[styles.centre, { backgroundColor: theme.background }]}>
-          <ActivityIndicator color={theme.accent} />
+        <View style={[styles.centre, { backgroundColor: theme.colors.background }]}>
+          <ActivityIndicator color={theme.colors.primary} />
         </View>
       </>
     );
@@ -145,7 +147,7 @@ function AppInner() {
       <JournalProvider store={store} now={now} onSaved={revealMemories} onOpenWrite={openWrite}>
         <NavigationContainer
           ref={navigationRef}
-          theme={navigationTheme(theme)}
+          theme={theme.dark ? NavDarkTheme : NavLightTheme}
           onReady={reportInitialScreen}
           onStateChange={handleStateChange}
         >
@@ -245,14 +247,26 @@ export function handleTabPress(
  */
 function Tabs() {
   const { guard } = useJournal();
+  const { theme } = useTheme();
   return (
     <Tab.Navigator
       // Bottom placement keeps the tabs thumb-reachable on a phone, and
       // unobtrusive in a browser.
       screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarIcon: ({ color, size }) => (
-          <Ionicons name={TAB_ICONS[route.name as TabName]} color={color} size={size} />
+        tabBarActiveTintColor: theme.colors.onSecondaryContainer,
+        tabBarInactiveTintColor: theme.colors.onSurfaceVariant,
+        tabBarStyle: { backgroundColor: theme.colors.elevation.level2, borderTopWidth: 0 },
+        tabBarLabelStyle: theme.fonts.labelMedium,
+        tabBarIcon: ({ focused, color, size }) => (
+          <View
+            style={[
+              styles.tabIndicator,
+              focused && { backgroundColor: theme.colors.secondaryContainer },
+            ]}
+          >
+            <MaterialCommunityIcons name={TAB_ICONS[route.name as TabName]} color={color} size={size} />
+          </View>
         ),
         // Otherwise the keyboard just sits on top of the tab bar rather than
         // the bar making room for it.
@@ -285,12 +299,14 @@ function Tabs() {
 
 function ErrorScreen({ error, theme }: { error: Error; theme: Theme }) {
   return (
-    <View style={[styles.centre, { backgroundColor: theme.background }]}>
-      <Text style={[styles.errorTitle, { color: theme.text }]}>
+    <View style={[styles.centre, { backgroundColor: theme.colors.background }]}>
+      <Text variant="titleLarge" style={styles.errorTitle}>
         Could not open your journal
       </Text>
-      <Text style={[styles.errorBody, { color: theme.text }]}>{error.message}</Text>
-      <Text style={[styles.errorBody, { color: theme.textMuted }]}>
+      <Text variant="bodyMedium" style={styles.errorBody}>
+        {error.message}
+      </Text>
+      <Text variant="bodyMedium" style={[styles.errorBody, { color: theme.colors.onSurfaceVariant }]}>
         Your entries are still on this device. Restarting the app is usually enough.
       </Text>
     </View>
@@ -300,6 +316,7 @@ function ErrorScreen({ error, theme }: { error: Error; theme: Theme }) {
 const styles = StyleSheet.create({
   safeArea: { flex: 1 },
   centre: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
-  errorTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 12, textAlign: 'center' },
+  errorTitle: { marginBottom: 12, textAlign: 'center' },
   errorBody: { textAlign: 'center', marginBottom: 8 },
+  tabIndicator: { paddingHorizontal: 20, paddingVertical: 4, borderRadius: 16 },
 });

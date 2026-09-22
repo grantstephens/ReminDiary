@@ -407,15 +407,19 @@ describe('data section', () => {
 });
 
 describe('appearance section', () => {
+  // The SegmentedButtons component from react-native-paper marks the active
+  // option via accessibilityState.checked, not .selected - a plain button
+  // group's key, not a toggle group's. That is Paper's contract, not this
+  // app's, so these pin the key it actually sets.
   test('defaults to System selected', async () => {
     await renderSettings();
-    expect(screen.getByTestId('appearance-system').props.accessibilityState.selected).toBe(
+    expect(screen.getByTestId('appearance-system').props.accessibilityState.checked).toBe(
       true,
     );
-    expect(screen.getByTestId('appearance-light').props.accessibilityState.selected).toBe(
+    expect(screen.getByTestId('appearance-light').props.accessibilityState.checked).toBe(
       false,
     );
-    expect(screen.getByTestId('appearance-dark').props.accessibilityState.selected).toBe(false);
+    expect(screen.getByTestId('appearance-dark').props.accessibilityState.checked).toBe(false);
   });
 
   test('tapping Dark selects it and persists the choice', async () => {
@@ -423,8 +427,8 @@ describe('appearance section', () => {
     await act(async () => {
       fireEvent.press(screen.getByTestId('appearance-dark'));
     });
-    expect(screen.getByTestId('appearance-dark').props.accessibilityState.selected).toBe(true);
-    expect(screen.getByTestId('appearance-system').props.accessibilityState.selected).toBe(
+    expect(screen.getByTestId('appearance-dark').props.accessibilityState.checked).toBe(true);
+    expect(screen.getByTestId('appearance-system').props.accessibilityState.checked).toBe(
       false,
     );
     expect(setThemeMode).toHaveBeenCalledWith('dark');
@@ -434,7 +438,7 @@ describe('appearance section', () => {
     getThemeMode.mockResolvedValue('light');
     await renderSettings();
     await waitFor(() =>
-      expect(screen.getByTestId('appearance-light').props.accessibilityState.selected).toBe(
+      expect(screen.getByTestId('appearance-light').props.accessibilityState.checked).toBe(
         true,
       ),
     );

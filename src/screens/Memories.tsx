@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
+import { Text, TouchableRipple } from 'react-native-paper';
 
 import { useJournal } from '../JournalContext';
 import {
@@ -93,31 +94,35 @@ export function MemoriesScreen() {
     <ScrollView style={styles.screen} contentContainerStyle={styles.list}>
       {shown.length > 0 ? (
         shown.map((e) => (
-          <Pressable
+          <TouchableRipple
             key={e.date}
             testID={`memories-item-${yearOf(e.date)}`}
             style={styles.item}
             onPress={() => openWrite(e.date)}
           >
-            <Text testID={`memories-heading-${yearOf(e.date)}`} style={styles.heading}>
-              {`${yearOf(e.date)} — ${yearsAgoLabel(yearOf(day) - yearOf(e.date))}`}
-            </Text>
-            <Text style={styles.body}>{e.body}</Text>
-          </Pressable>
+            <View style={styles.itemContent}>
+              <Text testID={`memories-heading-${yearOf(e.date)}`} variant="titleMedium" style={styles.heading}>
+                {`${yearOf(e.date)} — ${yearsAgoLabel(yearOf(day) - yearOf(e.date))}`}
+              </Text>
+              <Text variant="bodyMedium">{e.body}</Text>
+            </View>
+          </TouchableRipple>
         ))
       ) : fallback !== null ? (
-        <Pressable
+        <TouchableRipple
           testID="memories-fallback"
           style={styles.item}
           onPress={() => openWrite(fallback.entry.date)}
         >
-          <Text testID="memories-fallback-heading" style={styles.heading}>
-            {`${displayDate(fallback.entry.date)} — ${fallback.label}`}
-          </Text>
-          <Text style={styles.body}>{fallback.entry.body}</Text>
-        </Pressable>
+          <View style={styles.itemContent}>
+            <Text testID="memories-fallback-heading" variant="titleMedium" style={styles.heading}>
+              {`${displayDate(fallback.entry.date)} — ${fallback.label}`}
+            </Text>
+            <Text variant="bodyMedium">{fallback.entry.body}</Text>
+          </View>
+        </TouchableRipple>
       ) : (
-        <Text testID="memories-empty" style={styles.empty}>
+        <Text testID="memories-empty" variant="bodyLarge" style={styles.empty}>
           {emptyMemoriesText(day)}
         </Text>
       )}
@@ -127,16 +132,16 @@ export function MemoriesScreen() {
 
 function createStyles(theme: Theme) {
   return StyleSheet.create({
-    screen: { backgroundColor: theme.background },
+    screen: { backgroundColor: theme.colors.background },
     list: { padding: 16 },
-    empty: { fontSize: 16, color: theme.textMuted },
+    empty: { color: theme.colors.onSurfaceVariant },
     item: {
       marginBottom: 16,
-      padding: 12,
-      borderRadius: 6,
-      backgroundColor: theme.surface,
+      borderRadius: theme.roundness * 3,
+      backgroundColor: theme.colors.surfaceVariant,
+      overflow: 'hidden',
     },
-    heading: { fontWeight: 'bold', marginBottom: 4, color: theme.accent },
-    body: { fontSize: 16, color: theme.text },
+    itemContent: { padding: 16 },
+    heading: { marginBottom: 4, color: theme.colors.primary },
   });
 }

@@ -1,13 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { KeyboardAvoidingView, Platform, StyleSheet, View } from 'react-native';
+import { Button, IconButton, Text, TextInput } from 'react-native-paper';
 
 import { useJournal } from '../JournalContext';
 import {
@@ -29,7 +22,10 @@ import type { Theme } from '../theme';
  *
  * The editor is a real TextInput, which on Android is a real EditText and on
  * the web is a real textarea. That is the entire reason this implementation
- * exists, so resist any temptation to wrap it in something clever.
+ * exists, so resist any temptation to wrap it in something clever. Paper's
+ * TextInput is a themed decorator around that same native TextInput, not a
+ * replacement for it, so this still holds - see the `render` prop it accepts
+ * if that ever needs re-verifying.
  */
 export function WriteScreen() {
   const { store, now, revision, bump, guard, onSaved, openDate } = useJournal();
@@ -273,36 +269,38 @@ export function WriteScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <View style={styles.header}>
-        <Pressable testID="write-prev" onPress={() => void step(-1)} style={styles.arrow}>
-          <Text style={styles.arrowText}>{'<'}</Text>
-        </Pressable>
+        <IconButton testID="write-prev" icon="chevron-left" onPress={() => void step(-1)} />
         <View style={styles.headerText}>
-          <Text testID="write-header" style={styles.date}>
+          <Text testID="write-header" variant="titleLarge">
             {displayDate(date)}
           </Text>
-          <Text testID="write-badge" style={styles.badge}>
+          <Text
+            testID="write-badge"
+            variant="labelMedium"
+            style={[styles.badge, isToday && { color: theme.colors.primary }]}
+          >
             {isToday ? 'today' : ''}
           </Text>
         </View>
-        <Pressable
+        <IconButton
           testID="write-next"
+          icon="chevron-right"
           disabled={isToday}
           onPress={() => void step(1)}
-          style={[styles.arrow, isToday && styles.arrowDisabled]}
-        >
-          <Text style={styles.arrowText}>{'>'}</Text>
-        </Pressable>
+        />
       </View>
 
       <TextInput
         testID="write-body"
         style={styles.body}
+        mode="flat"
+        underlineColor="transparent"
+        activeUnderlineColor="transparent"
         value={text}
         onChangeText={setText}
         onFocus={startEditing}
         onBlur={stopEditing}
         placeholder="What happened today?"
-        placeholderTextColor={theme.textMuted}
         multiline
         textAlignVertical="top"
       />
@@ -312,9 +310,9 @@ export function WriteScreen() {
         // typing, per tabBarHideOnKeyboard in App.tsx) - it always reads the
         // same thing regardless of what save() will actually do; the delete
         // confirmation dialog is what explains that specific case.
-        <Pressable testID="write-save" onPress={() => void save()} style={styles.save}>
-          <Text style={styles.saveText}>Take Me to Memories →</Text>
-        </Pressable>
+        <Button testID="write-save" mode="contained" onPress={() => void save()} style={styles.save}>
+          Take Me to Memories →
+        </Button>
       )}
     </KeyboardAvoidingView>
   );
@@ -322,21 +320,11 @@ export function WriteScreen() {
 
 function createStyles(theme: Theme) {
   return StyleSheet.create({
-    screen: { flex: 1, padding: 12, backgroundColor: theme.background },
+    screen: { flex: 1, padding: 12, backgroundColor: theme.colors.background },
     header: { flexDirection: 'row', alignItems: 'center' },
     headerText: { flex: 1, alignItems: 'center' },
-    date: { fontSize: 18, fontWeight: 'bold', color: theme.text },
-    badge: { fontStyle: 'italic', minHeight: 18, color: theme.textMuted },
-    arrow: { padding: 12 },
-    arrowDisabled: { opacity: 0.3 },
-    arrowText: { fontSize: 20, color: theme.text },
-    body: { flex: 1, marginVertical: 12, fontSize: 16, color: theme.text },
-    save: {
-      padding: 14,
-      alignItems: 'center',
-      borderRadius: 6,
-      backgroundColor: theme.surface,
-    },
-    saveText: { fontSize: 16, fontWeight: 'bold', color: theme.accent },
+    badge: { minHeight: 18 },
+    body: { flex: 1, marginVertical: 12, backgroundColor: 'transparent' },
+    save: { marginHorizontal: 4, marginBottom: 4 },
   });
 }

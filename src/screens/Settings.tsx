@@ -1,14 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import {
-  Linking,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Switch,
-  Text,
-  View,
-} from 'react-native';
+import { Linking, Platform, ScrollView, StyleSheet } from 'react-native';
+import { Button, Divider, List, SegmentedButtons, Switch, Text } from 'react-native-paper';
 
 import { useJournal } from '../JournalContext';
 import { displayDate, today } from '../domain/date';
@@ -162,84 +154,92 @@ export function SettingsScreen() {
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
       {statsLines(stats).map((line, i) => (
-        <Text key={line} testID={`stats-line-${i}`} style={styles.statsLine}>
+        <Text key={line} testID={`stats-line-${i}`} variant="bodyLarge" style={styles.statsLine}>
           {line}
         </Text>
       ))}
 
-      <View style={styles.divider} />
+      <Divider style={styles.divider} />
 
-      <Text style={styles.explain}>
+      <Text variant="bodyMedium" style={styles.explain}>
         Import merges a CSV into your journal. Dates you already have are skipped unless you
         tick overwrite. Export writes every entry to a CSV file.
       </Text>
 
-      <Pressable testID="data-import-help" onPress={openImportHelp}>
-        <Text style={styles.link}>CSV format & example</Text>
-      </Pressable>
+      <Button
+        testID="data-import-help"
+        mode="text"
+        compact
+        style={styles.link}
+        onPress={openImportHelp}
+      >
+        CSV format & example
+      </Button>
 
-      <View style={styles.row}>
-        <Switch testID="data-overwrite" value={overwrite} onValueChange={setOverwrite} />
-        <Text style={styles.rowLabel}>Overwrite existing entries</Text>
-      </View>
+      <List.Item
+        title="Overwrite existing entries"
+        style={styles.listItem}
+        right={() => <Switch testID="data-overwrite" value={overwrite} onValueChange={setOverwrite} />}
+      />
 
-      <Pressable
+      <Button
         testID="data-import"
+        mode="contained-tonal"
         disabled={busy}
+        loading={busy}
         onPress={() => void runImport()}
         style={styles.button}
       >
-        <Text style={styles.buttonText}>Import CSV</Text>
-      </Pressable>
+        Import CSV
+      </Button>
 
-      <Pressable
+      <Button
         testID="data-export"
+        mode="contained-tonal"
         disabled={busy}
+        loading={busy}
         onPress={() => void runExport()}
         style={styles.button}
       >
-        <Text style={styles.buttonText}>Export CSV</Text>
-      </Pressable>
+        Export CSV
+      </Button>
 
-      <View style={styles.divider} />
+      <Divider style={styles.divider} />
 
-      <Text style={styles.sectionLabel}>Analytics</Text>
-      <Text style={styles.explain}>
+      <Text variant="titleMedium" style={styles.sectionLabel}>
+        Analytics
+      </Text>
+      <Text variant="bodyMedium" style={styles.explain}>
         Share anonymous screen-view counts to help understand how this app is used. Off by
         default. No entry content, dates, or other personal data are ever sent.
       </Text>
-      <View style={styles.row}>
-        <Switch
-          testID="analytics-enabled"
-          value={analyticsEnabled}
-          onValueChange={onToggleAnalytics}
-        />
-        <Text style={styles.rowLabel}>Share anonymous usage analytics</Text>
-      </View>
+      <List.Item
+        title="Share anonymous usage analytics"
+        style={styles.listItem}
+        right={() => (
+          <Switch
+            testID="analytics-enabled"
+            value={analyticsEnabled}
+            onValueChange={onToggleAnalytics}
+          />
+        )}
+      />
 
       {Platform.OS !== 'web' && (
         <>
-          <View style={styles.divider} />
-          <Text style={styles.sectionLabel}>Appearance</Text>
-          <View style={styles.pillRow}>
-            {APPEARANCE_OPTIONS.map((option) => {
-              const selected = mode === option.mode;
-              return (
-                <Pressable
-                  key={option.mode}
-                  testID={`appearance-${option.mode}`}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected }}
-                  onPress={() => setMode(option.mode)}
-                  style={[styles.pill, selected && styles.pillSelected]}
-                >
-                  <Text style={[styles.pillText, selected && styles.pillTextSelected]}>
-                    {option.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
+          <Divider style={styles.divider} />
+          <Text variant="titleMedium" style={styles.sectionLabel}>
+            Appearance
+          </Text>
+          <SegmentedButtons
+            value={mode}
+            onValueChange={(value) => setMode(value as ThemeMode)}
+            buttons={APPEARANCE_OPTIONS.map((option) => ({
+              value: option.mode,
+              label: option.label,
+              testID: `appearance-${option.mode}`,
+            }))}
+          />
         </>
       )}
     </ScrollView>
@@ -248,33 +248,14 @@ export function SettingsScreen() {
 
 function createStyles(theme: Theme) {
   return StyleSheet.create({
-    screen: { backgroundColor: theme.background },
+    screen: { backgroundColor: theme.colors.background },
     content: { padding: 16 },
-    statsLine: { fontSize: 16, marginBottom: 10, color: theme.text },
-    divider: { height: 1, backgroundColor: theme.border, marginVertical: 20 },
-    explain: { fontSize: 15, marginBottom: 20, color: theme.text },
-    link: { fontSize: 14, marginTop: -12, marginBottom: 20, color: theme.accent },
-    row: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
-    rowLabel: { marginLeft: 10, fontSize: 15, color: theme.text },
-    button: {
-      paddingVertical: 14,
-      alignItems: 'center',
-      borderRadius: 6,
-      marginBottom: 12,
-      backgroundColor: theme.surface,
-    },
-    buttonText: { fontSize: 16, fontWeight: 'bold', color: theme.accent },
-    sectionLabel: { fontSize: 15, fontWeight: 'bold', marginBottom: 12, color: theme.text },
-    pillRow: { flexDirection: 'row', gap: 8 },
-    pill: {
-      flex: 1,
-      paddingVertical: 10,
-      alignItems: 'center',
-      borderRadius: 6,
-      backgroundColor: theme.surface,
-    },
-    pillSelected: { backgroundColor: theme.accent },
-    pillText: { fontSize: 14, fontWeight: 'bold', color: theme.text },
-    pillTextSelected: { color: theme.background },
+    statsLine: { marginBottom: 10 },
+    divider: { marginVertical: 20 },
+    explain: { marginBottom: 12 },
+    link: { alignSelf: 'flex-start', marginLeft: -12, marginBottom: 8 },
+    listItem: { paddingHorizontal: 0, marginBottom: 8 },
+    button: { marginBottom: 12 },
+    sectionLabel: { marginBottom: 12 },
   });
 }
