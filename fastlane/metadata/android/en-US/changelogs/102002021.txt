@@ -1,0 +1,2 @@
+Fix bottom navigation icons not showing up after the Material Design 3
+redesign in the previous beta.
