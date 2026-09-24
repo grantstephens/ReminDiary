@@ -1,0 +1,4 @@
+Redesigned with Material Design 3: new colors, buttons, switches, text
+fields, and navigation throughout, with real Material ripple feedback on
+tappable entries. No changes to your data or how saving, streaks, or
+Memories work.
