@@ -258,6 +258,13 @@ function Tabs() {
         tabBarInactiveTintColor: theme.colors.onSurfaceVariant,
         tabBarStyle: { backgroundColor: theme.colors.elevation.level2, borderTopWidth: 0 },
         tabBarLabelStyle: theme.fonts.labelMedium,
+        // react-navigation's Material tab item wraps icon+label in
+        // overflow:'hidden' (to clip the Android ripple) and only reserves a
+        // 24x24 box for the icon - a pill wider than that got silently
+        // clipped away entirely. tabBarIconStyle grows the reserved box so
+        // the pill has room; styles.tabIndicator fills it rather than
+        // padding past it.
+        tabBarIconStyle: styles.tabIconSlot,
         tabBarIcon: ({ focused, color, size }) => (
           <View
             style={[
@@ -318,5 +325,12 @@ const styles = StyleSheet.create({
   centre: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
   errorTitle: { marginBottom: 12, textAlign: 'center' },
   errorBody: { textAlign: 'center', marginBottom: 8 },
-  tabIndicator: { paddingHorizontal: 20, paddingVertical: 4, borderRadius: 16 },
+  tabIconSlot: { width: 64, height: 32 },
+  tabIndicator: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 16,
+  },
 });
