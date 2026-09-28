@@ -271,8 +271,23 @@ Builds:
 # binary:-referenced reference APKs must actually be signed with.
 AllowedAPKSigningKeys: a79298e44336ddcb4d63b728d70dda772381274274cbb44609bdaa6ff2e2f328
 
+# Bug found 2026-09-28, fixed by MR !50450: checkupdates' Tags mode has no
+# pre-release awareness of its own - with no pattern, check_tags() just
+# takes the 5 most recent tags and picks whichever has the highest
+# versionCode. Beta tags get a real versionCode from compute-version.sh's
+# packing (stage=2, still above any prior final release's), so the first
+# beta tag pushed after a final release beat it in the comparison and got
+# auto-built and shipped to F-Droid users - confirmed happening live
+# twice in this app's own update-bot history, both v1.2.0-beta.1
+# (102002012) and v1.2.0-beta.2 (102002022) auto-shipped before the real
+# v1.2.0 (102009992) superseded them. The regex below restricts
+# UpdateCheckMode: Tags to tags that are exactly "v<major>.<minor>.<patch>"
+# with no -alpha/-beta/-rc suffix, applied via re.match against the full
+# tag string (confirmed against fdroidserver's checkupdates.py: pattern
+# filtering happens first, so a beta tag is excluded before it ever
+# reaches the top-5/highest-vercode comparison, not merely deprioritized).
 AutoUpdateMode: Version
-UpdateCheckMode: Tags
+UpdateCheckMode: Tags ^v[0-9]+\.[0-9]+\.[0-9]+$
 # Derives each ABI split's versionCode from the raw one fdroid-version.txt
 # carries (see above) - %c * 10 + 1 for armeabi-v7a, + 2 for arm64-v8a,
 # matching the two Builds entries above in the same order. CurrentVersionCode
