@@ -10,6 +10,7 @@ import {
   today,
   type JournalDate,
 } from '../domain/date';
+import { randomPrompt } from '../domain/prompts';
 import { plannedSave, shouldPromptForYesterday, trimBody } from '../domain/save';
 import { confirm, notify } from '../platform/confirm';
 import { onAppHidden } from '../platform/lifecycle';
@@ -35,6 +36,7 @@ export function WriteScreen() {
   const [date, setDate] = useState<JournalDate>(() => today(now()));
   const [loaded, setLoaded] = useState('');
   const [text, setText] = useState('');
+  const [prompt, setPrompt] = useState(() => randomPrompt());
   const [exists, setExists] = useState(false);
   const [editing, setEditing] = useState(false);
   const [yesterdayPromptDismissed, setYesterdayPromptDismissed] = useState(false);
@@ -78,6 +80,7 @@ export function WriteScreen() {
         setExists(entry !== null);
         setLoaded(entry?.body ?? '');
         setText(entry?.body ?? '');
+        setPrompt(randomPrompt());
       } catch (err) {
         await notify('Could not read that day', (err as Error).message);
       }
@@ -300,7 +303,7 @@ export function WriteScreen() {
         onChangeText={setText}
         onFocus={startEditing}
         onBlur={stopEditing}
-        placeholder="What happened today?"
+        placeholder={prompt}
         multiline
         textAlignVertical="top"
       />
