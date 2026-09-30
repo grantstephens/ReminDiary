@@ -1,0 +1,3 @@
+New: a blank entry now shows a random writing prompt instead of the same
+fixed placeholder every time, picked from 30 prompts, to give you
+something to react to when you're not sure what to write.
