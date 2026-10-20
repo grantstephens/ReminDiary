@@ -4,7 +4,6 @@ import React from 'react';
 import { JournalProvider, useJournal, type UnsavedGuard } from '../JournalContext';
 import { ThemeProvider } from '../ThemeContext';
 import type { JournalDate } from '../domain/date';
-import { PROMPTS } from '../domain/prompts';
 import type { Store } from '../domain/store';
 import { SqliteStore } from '../storage/SqliteStore';
 import { openNodeSqlite } from '../storage/nodeSqlite';
@@ -65,9 +64,9 @@ test('opens on today', async () => {
   expect(screen.getByTestId('write-badge').props.children).toBe('today');
 });
 
-test('a blank entry shows a random prompt as its placeholder', async () => {
+test('a blank entry shows "Today..." as its placeholder', async () => {
   await renderWrite(store);
-  expect(PROMPTS).toContain(screen.getByTestId('write-body').props.placeholder);
+  expect(screen.getByTestId('write-body').props.placeholder).toBe('Today...');
 });
 
 test('the save button is hidden until you start editing', async () => {
