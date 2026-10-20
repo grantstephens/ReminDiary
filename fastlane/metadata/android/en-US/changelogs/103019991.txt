@@ -1,0 +1,1 @@
+The writing placeholder is now a simple "Today..." instead of rotating questions.
