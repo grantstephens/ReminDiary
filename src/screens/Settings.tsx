@@ -180,7 +180,7 @@ export function SettingsScreen() {
 
       <List.Item
         title="Show streaks and nudges"
-        description="Streak counts, and the prompt to fill in yesterday when you save today."
+        description="Shows your streak counts, and asks whether to fill in yesterday when you save today. Turn off if you don't write every day."
         style={styles.listItem}
         right={() => (
           <Switch

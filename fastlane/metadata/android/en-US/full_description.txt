@@ -4,6 +4,7 @@ Everything stays on your device. There is no account and no sync. Entries export
 
 * One entry per calendar date
 * Automatic reveal of past entries on the same date in previous years
+* Streaks and a gentle "fill in yesterday?" nudge, both optional - one switch in Settings turns them off
 * CSV export and import
 * Restores itself on a new device via Android's own backup system, not any account or service of ours
 * Light and dark themes, following the system by default

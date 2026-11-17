@@ -56,7 +56,9 @@ Three screens:
   "1 year ago", "2 years ago" and so on. Empty until you have a year of history.
 - **Settings** — current streak, longest streak, total entries, the date you started
   (an unwritten *today* does not break your streak; an unwritten *yesterday* does), CSV
-  export/import, and the light/dark appearance override.
+  export/import, and the light/dark appearance override. If you don't write every day,
+  turn off **Show streaks and nudges**: the streak lines disappear and saving today no
+  longer asks whether to fill in yesterday. On by default.
 
 There is deliberately no search, no calendar picker, no notifications and no future-dated
 entries. It is a journal, not an organiser.
