@@ -70,7 +70,7 @@ nothing imports from `src/screens` except `App.tsx`.
 | `src/storage` | `SqliteStore` (Android, via `expo-sqlite`/`node:sqlite`) and `IndexedDbStore` (web), held to one shared behavioural contract (`storeContract.ts`) run against both. |
 | `src/csv` | Import and export against a `Store`: `date,body,created,updated`. |
 | `src/screens` | Write, Memories, Settings (stats and import/export combined). |
-| `src/platform` | The things that genuinely differ per target: file access (`files.*`), dialogs (`confirm.*` — React Native's `Alert` is a silent no-op on `react-native-web`), app-backgrounding signals (`lifecycle.*`), analytics (`analytics.*`), and the light/dark override (`themePreference.*`, native-only — see below). |
+| `src/platform` | The things that genuinely differ per target: file access (`files.*`), dialogs (`confirm.*` — React Native's `Alert` is a silent no-op on `react-native-web`), app-backgrounding signals (`lifecycle.*`), analytics (`analytics.*`), the streaks on/off preference (`streakPreference.*`), and the light/dark override (`themePreference.*`, native-only — see below). |
 | `src/theme.ts`, `src/ThemeContext.tsx` | Colors. `theme.ts` is the two palettes (light/dark), pure data. `ThemeContext`'s `ThemeProvider`/`useTheme()` follows the system color scheme by default, or a stored override from `platform/themePreference` — native-only by design; on web it always resolves to the light theme and never touches the preference file, so web keeps the appearance it always had. |
 | `App.tsx` / `JournalContext.tsx` | Store bootstrap, the error screen, and the cross-screen wiring: a `revision` counter every write path bumps, and an `onSaved` callback the Write screen fires that `App.tsx` turns into "reveal Memories". |
 
@@ -90,7 +90,8 @@ nothing imports from `src/screens` except `App.tsx`.
   entry checks the previous calendar day; if it's blank, `confirm()` offers to load
   yesterday into the editor before navigating to Memories. Silent saves (tab switches,
   date steps, app backgrounding) never prompt; a declined prompt is suppressed for the
-  rest of the session.
+  rest of the session. The "Show streaks and nudges" toggle in Settings (on by default) turns
+  off both this prompt and the streak lines in Settings stats; stats stay derived either way.
 - **Memory selection prefers anniversaries.** When today has no anniversary entry, fall
   back to the most interesting period memory (`findInterestingPeriodMemory`), surfaced
   with a relative label like "last month" rather than a year count. If nothing is

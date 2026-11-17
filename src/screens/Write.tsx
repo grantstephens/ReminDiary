@@ -13,6 +13,7 @@ import {
 import { plannedSave, shouldPromptForYesterday, trimBody } from '../domain/save';
 import { confirm, notify } from '../platform/confirm';
 import { onAppHidden } from '../platform/lifecycle';
+import { getStreaksEnabled } from '../platform/streakPreference';
 import { useTheme } from '../ThemeContext';
 import type { Theme } from '../theme';
 
@@ -230,7 +231,8 @@ export function WriteScreen() {
 
     // Streak-protection prompt: saving today while yesterday is blank is the
     // moment the streak rule breaks, so offer to backfill before showing Memories.
-    if (isToday && !yesterdayPromptDismissed) {
+    // Skipped entirely when the user has turned streaks off in Settings.
+    if (isToday && !yesterdayPromptDismissed && (await getStreaksEnabled())) {
       const yesterday = addDays(date, -1);
       const yesterdayEntry = await store.get(yesterday);
       if (

@@ -14,6 +14,7 @@ jest.mock('../platform/files');
 jest.mock('../platform/confirm');
 jest.mock('../platform/themePreference');
 jest.mock('../platform/analytics');
+jest.mock('../platform/streakPreference');
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { pickCsv, saveCsv } = require('../platform/files') as {
   pickCsv: jest.Mock;
@@ -34,6 +35,11 @@ const { getAnalyticsEnabled, setAnalyticsEnabled } = require('../platform/analyt
   getAnalyticsEnabled: jest.Mock;
   setAnalyticsEnabled: jest.Mock;
 };
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { getStreaksEnabled, setStreaksEnabled } = require('../platform/streakPreference') as {
+  getStreaksEnabled: jest.Mock;
+  setStreaksEnabled: jest.Mock;
+};
 
 const now = () => new Date('2026-08-19T12:00:00Z');
 const CSV = 'date,body,created,updated\n2026-08-19,hello,,\n';
@@ -53,6 +59,10 @@ beforeEach(async () => {
   getAnalyticsEnabled.mockResolvedValue(false);
   setAnalyticsEnabled.mockReset();
   setAnalyticsEnabled.mockResolvedValue(undefined);
+  getStreaksEnabled.mockReset();
+  getStreaksEnabled.mockResolvedValue(true);
+  setStreaksEnabled.mockReset();
+  setStreaksEnabled.mockResolvedValue(undefined);
   originalOS = Platform.OS;
 });
 afterEach(async () => {
@@ -150,6 +160,13 @@ describe('stats section', () => {
     expect(statsLines({ current: 5, longest: 9, total: 42, since: '2019-03-02' })).toEqual([
       'Current streak: 5 days',
       'Longest streak: 9 days',
+      'Total entries: 42',
+      'Writing since: Sat 2 Mar 2019',
+    ]);
+  });
+
+  test('statsLines omits the streak lines when streaks are off', () => {
+    expect(statsLines({ current: 5, longest: 9, total: 42, since: '2019-03-02' }, false)).toEqual([
       'Total entries: 42',
       'Writing since: Sat 2 Mar 2019',
     ]);
@@ -449,6 +466,43 @@ describe('appearance section', () => {
     Platform.OS = 'web';
     await renderSettings();
     expect(screen.queryByTestId('appearance-system')).toBeNull();
+  });
+});
+
+describe('streaks section', () => {
+  test('is on by default', async () => {
+    await renderSettings();
+    await waitFor(() => expect(screen.getByTestId('streaks-enabled').props.value).toBe(true));
+  });
+
+  test('turning it off persists the choice and hides the streak lines', async () => {
+    await store.put({
+      date: '2026-08-19',
+      body: 'hello',
+      created: '2026-08-19T12:00:00Z',
+      updated: '2026-08-19T12:00:00Z',
+    });
+    await renderSettings();
+    await waitFor(() => expect(screen.getByText('Current streak: 1 day')).toBeTruthy());
+    await act(async () => {
+      fireEvent(screen.getByTestId('streaks-enabled'), 'valueChange', false);
+    });
+    expect(screen.getByTestId('streaks-enabled').props.value).toBe(false);
+    expect(setStreaksEnabled).toHaveBeenCalledWith(false);
+    expect(screen.queryByText(/^(Current|Longest) streak/)).toBeNull();
+    expect(screen.getByText('Total entries: 1')).toBeTruthy();
+  });
+
+  test('loads a previously persisted off choice', async () => {
+    getStreaksEnabled.mockResolvedValue(false);
+    await renderSettings();
+    await waitFor(() => expect(screen.getByTestId('streaks-enabled').props.value).toBe(false));
+  });
+
+  test('is shown on web as well as native', async () => {
+    Platform.OS = 'web';
+    await renderSettings();
+    expect(screen.getByTestId('streaks-enabled')).toBeTruthy();
   });
 });
 
