@@ -20,6 +20,12 @@ jest.mock('../platform/lifecycle');
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { onAppHidden } = require('../platform/lifecycle') as { onAppHidden: jest.Mock };
 
+jest.mock('../platform/streakPreference');
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { getStreaksEnabled } = require('../platform/streakPreference') as {
+  getStreaksEnabled: jest.Mock;
+};
+
 jest.mock('../platform/themePreference');
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { getThemeMode } = require('../platform/themePreference') as { getThemeMode: jest.Mock };
@@ -51,6 +57,8 @@ beforeEach(async () => {
   notify.mockResolvedValue(undefined);
   onAppHidden.mockReset();
   onAppHidden.mockImplementation(() => () => {});
+  getStreaksEnabled.mockReset();
+  getStreaksEnabled.mockResolvedValue(true);
   getThemeMode.mockReset();
   getThemeMode.mockResolvedValue(null);
 });
@@ -257,6 +265,19 @@ test('saving today does not prompt when yesterday already has an entry', async (
     created: '2026-08-18T12:00:00Z',
     updated: '2026-08-18T12:00:00Z',
   });
+  await renderWrite(store);
+  await fireEvent(screen.getByTestId('write-body'), 'focus');
+  await fireEvent.changeText(screen.getByTestId('write-body'), 'a good day');
+  await act(async () => {
+    fireEvent.press(screen.getByTestId('write-save'));
+  });
+
+  expect(confirm).not.toHaveBeenCalled();
+  expect(onSaved).toHaveBeenCalledWith('2026-08-19');
+});
+
+test('saving today does not prompt about yesterday when streaks are turned off', async () => {
+  getStreaksEnabled.mockResolvedValue(false);
   await renderWrite(store);
   await fireEvent(screen.getByTestId('write-body'), 'focus');
   await fireEvent.changeText(screen.getByTestId('write-body'), 'a good day');

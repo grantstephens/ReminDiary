@@ -10,6 +10,7 @@ import { formatRowError, importCsv, type ImportResult } from '../csv/import';
 import { getAnalyticsEnabled, setAnalyticsEnabled } from '../platform/analytics';
 import { confirm, notify } from '../platform/confirm';
 import { pickCsv, saveCsv } from '../platform/files';
+import { getStreaksEnabled, setStreaksEnabled } from '../platform/streakPreference';
 import { useTheme } from '../ThemeContext';
 import type { Theme, ThemeMode } from '../theme';
 
@@ -27,13 +28,14 @@ export function days(n: number): string {
 }
 
 /** statsLines renders statistics as display lines. */
-export function statsLines(stats: Stats): string[] {
+export function statsLines(stats: Stats, showStreaks = true): string[] {
   if (stats.total === 0 || stats.since === null) {
     return ['No entries yet. Write something today.'];
   }
   return [
-    `Current streak: ${days(stats.current)}`,
-    `Longest streak: ${days(stats.longest)}`,
+    ...(showStreaks
+      ? [`Current streak: ${days(stats.current)}`, `Longest streak: ${days(stats.longest)}`]
+      : []),
     `Total entries: ${stats.total}`,
     `Writing since: ${displayDate(stats.since)}`,
   ];
@@ -80,6 +82,23 @@ export function SettingsScreen() {
       cancelled = true;
     };
   }, []);
+
+  const [streaksEnabled, setStreaksEnabledState] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    void getStreaksEnabled().then((enabled) => {
+      if (!cancelled) setStreaksEnabledState(enabled);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const onToggleStreaks = (enabled: boolean) => {
+    setStreaksEnabledState(enabled);
+    void setStreaksEnabled(enabled);
+  };
 
   const onToggleAnalytics = (enabled: boolean) => {
     setAnalyticsEnabledState(enabled);
@@ -153,11 +172,24 @@ export function SettingsScreen() {
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-      {statsLines(stats).map((line, i) => (
+      {statsLines(stats, streaksEnabled).map((line, i) => (
         <Text key={line} testID={`stats-line-${i}`} variant="bodyLarge" style={styles.statsLine}>
           {line}
         </Text>
       ))}
+
+      <List.Item
+        title="Show streaks and nudges"
+        description="Streak counts, and the prompt to fill in yesterday when you save today."
+        style={styles.listItem}
+        right={() => (
+          <Switch
+            testID="streaks-enabled"
+            value={streaksEnabled}
+            onValueChange={onToggleStreaks}
+          />
+        )}
+      />
 
       <Divider style={styles.divider} />
 
