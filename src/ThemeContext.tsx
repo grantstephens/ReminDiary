@@ -1,8 +1,9 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { Platform, useColorScheme } from 'react-native';
-import { MD3DarkTheme, MD3LightTheme, PaperProvider, type MD3Theme } from 'react-native-paper';
+import { PaperProvider, type MD3Theme } from 'react-native-paper';
 
+import { darkTheme, lightTheme } from './palette';
 import { getThemeMode, setThemeMode } from './platform/themePreference';
 import type { ThemeMode } from './theme';
 
@@ -17,7 +18,7 @@ const ThemeReactContext = createContext<ThemeValue | null>(null);
 
 /**
  * ThemeProvider is native-only in effect: on web it always resolves to
- * MD3LightTheme and never touches platform/themePreference, so web keeps
+ * lightTheme (the brand palette in ./palette) and never touches platform/themePreference, so web keeps
  * exactly the appearance it had before this existed. See themePreference.web.ts.
  *
  * It also mounts react-native-paper's PaperProvider with the same resolved
@@ -48,9 +49,9 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const theme = useMemo<MD3Theme>(() => {
-    if (Platform.OS === 'web') return MD3LightTheme;
+    if (Platform.OS === 'web') return lightTheme;
     const effective = mode === 'system' ? systemScheme : mode;
-    return effective === 'dark' ? MD3DarkTheme : MD3LightTheme;
+    return effective === 'dark' ? darkTheme : lightTheme;
   }, [mode, systemScheme]);
 
   const value = useMemo<ThemeValue>(() => ({ theme, mode, setMode }), [theme, mode, setMode]);

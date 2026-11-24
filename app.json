@@ -10,14 +10,14 @@
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#2E2A26"
+      "backgroundColor": "#6B7B4E"
     },
     "android": {
       "package": "xyz.hub13.remindiary",
       "adaptiveIcon": {
         "foregroundImage": "./assets/android-icon-foreground.png",
         "monochromeImage": "./assets/android-icon-monochrome.png",
-        "backgroundColor": "#2E2A26"
+        "backgroundColor": "#6B7B4E"
       },
       "permissions": [],
       "blockedPermissions": [

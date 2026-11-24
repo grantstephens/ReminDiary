@@ -113,3 +113,28 @@ test('on web, always resolves to the light theme regardless of system scheme or 
   // The native-only persistence layer is never touched on web.
   expect(getThemeMode).not.toHaveBeenCalled();
 });
+
+test('dark mode resolves to the charcoal brand theme', async () => {
+  useColorScheme.mockReturnValue('dark');
+  let latest: ReturnType<typeof useTheme> | null = null;
+  await render(
+    <ThemeProvider>
+      <Probe onReady={(v) => { latest = v; }} />
+    </ThemeProvider>,
+  );
+  await waitFor(() => expect(screen.getByTestId('dark').props.children).toBe('true'));
+  expect(latest!.theme.colors.background).toBe('#221F1B');
+});
+
+test('web always resolves to the light brand theme and never reads the stored preference', async () => {
+  Platform.OS = 'web';
+  useColorScheme.mockReturnValue('dark');
+  let latest: ReturnType<typeof useTheme> | null = null;
+  await render(
+    <ThemeProvider>
+      <Probe onReady={(v) => { latest = v; }} />
+    </ThemeProvider>,
+  );
+  expect(latest!.theme.colors.primary).toBe('#55633C');
+  expect(getThemeMode).not.toHaveBeenCalled();
+});

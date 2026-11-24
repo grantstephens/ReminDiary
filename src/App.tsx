@@ -12,8 +12,6 @@ import { StyleSheet, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import {
   ActivityIndicator,
-  MD3DarkTheme,
-  MD3LightTheme,
   Text,
   adaptNavigationTheme,
 } from 'react-native-paper';
@@ -26,22 +24,23 @@ import { openStore } from './storage/openStore';
 import { MemoriesScreen } from './screens/Memories';
 import { SettingsScreen } from './screens/Settings';
 import { WriteScreen } from './screens/Write';
+import { darkTheme, lightTheme } from './palette';
 import { ThemeProvider, useTheme } from './ThemeContext';
 import type { Theme } from './theme';
 
 /**
- * navigationThemes adapts Paper's MD3 palettes to react-navigation's own
+ * navigationThemes adapts the brand Paper palettes (./palette) to react-navigation's own
  * Theme shape via Paper's own helper, so the navigator's chrome (background,
  * the focused-route color) matches the same Material palette everything
  * else on screen uses. Built once for both modes; AppInner picks a side by
- * `theme.dark`, since our ThemeContext only ever resolves to MD3LightTheme
- * or MD3DarkTheme themselves, never a tinted variant.
+ * `theme.dark`, since our ThemeContext only ever resolves to the brand
+ * lightTheme or darkTheme from ./palette, never a tinted variant.
  */
 const { LightTheme: NavLightTheme, DarkTheme: NavDarkTheme } = adaptNavigationTheme({
   reactNavigationLight: NavigationDefaultTheme,
   reactNavigationDark: NavigationDarkTheme,
-  materialLight: MD3LightTheme,
-  materialDark: MD3DarkTheme,
+  materialLight: lightTheme,
+  materialDark: darkTheme,
 });
 
 export type TabName = 'Write' | 'Memories' | 'Settings';
